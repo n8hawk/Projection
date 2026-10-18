@@ -14,6 +14,12 @@ export interface UiState {
   selectedBoxId: string | null;
   stageView: StageView;
   outputOpen: boolean;
+  /** Live: the output window shows the show only. Off: it also draws the mapping helpers. */
+  live: boolean;
+  /** Point being edited on the selected surface or mask. */
+  selectedPoint: number;
+  /** Draw every surface outline while mapping, not just the selected one. */
+  outlines: boolean;
   /** Set when boxes moved since the last auto-map. */
   mapStale: boolean;
   pixelsPerSecond: number;
@@ -66,6 +72,9 @@ export const useStore = create<StoreState>((set, get) => ({
     selectedBoxId: null,
     stageView: 'audience',
     outputOpen: false,
+    live: false,
+    selectedPoint: 0,
+    outlines: true,
     mapStale: false,
     pixelsPerSecond: 24,
   },

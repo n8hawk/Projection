@@ -5,13 +5,23 @@ import type { PadSnapshot } from '../engine/pads';
 // the show and the transport over a BroadcastChannel; both read Date.now(), so
 // the transport anchor keeps them on the same frame without streaming time.
 
+/** What the output window needs to draw the mapping helpers over the show. */
+export interface Overlay {
+  /** True: show only. False: draw outlines and points for lining surfaces up. */
+  live: boolean;
+  outlines: boolean;
+  selectedId: string | null;
+  point: number;
+}
+
 export type SyncMessage =
   | { type: 'hello' }
   | { type: 'state'; show: Show; transport: Transport }
   | { type: 'transport'; transport: Transport }
   | { type: 'bye' }
   | { type: 'output-status'; fps: number; width: number; height: number }
-  | { type: 'gamepad'; pads: PadSnapshot[] };
+  | { type: 'gamepad'; pads: PadSnapshot[] }
+  | { type: 'overlay'; overlay: Overlay };
 
 export const CHANNEL = 'projection-studio';
 

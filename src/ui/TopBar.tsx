@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useStore, type Tab } from '../state/store';
 import { onStats } from '../engine/loop';
-import { goLive, closeOutput } from './golive';
+import { goLive, endLive, openOutput, closeOutput } from './golive';
 import { TEMPLATES } from '../model/defaultShow';
 import { toast } from './hooks';
 
@@ -59,6 +59,7 @@ export function TopBar() {
   const name = useStore((s) => s.show.name);
   const blank = useStore((s) => s.show.kind === 'blank');
   const outputOpen = useStore((s) => s.ui.outputOpen);
+  const live = useStore((s) => s.ui.live);
   const canUndo = useStore((s) => s.past.length > 0);
   const canRedo = useStore((s) => s.future.length > 0);
   const { setUi, undo, redo } = useStore.getState();
@@ -80,7 +81,7 @@ export function TopBar() {
       </nav>
       <div className="spacer" />
       <span className="stat fps">{fps.fps} FPS · {fps.ms.toFixed(1)} MS</span>
-      <span className="stat">OUTPUT: {outputOpen ? 'WINDOW' : 'SIM'}</span>
+      <span className="stat">OUTPUT: {!outputOpen ? 'SIM' : live ? 'LIVE' : 'MAPPING'}</span>
       <button type="button" className="icon-btn" aria-label="Undo" title="Undo (Ctrl+Z)" disabled={!canUndo} onClick={undo}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M9 14L4 9l5-5" /><path d="M4 9h10a6 6 0 0 1 0 12h-3" /></svg>
       </button>
@@ -89,9 +90,14 @@ export function TopBar() {
       </button>
       <TemplateMenu />
       {outputOpen ? (
-        <button type="button" className="btn cyan on" onClick={closeOutput}><span className="dot" />LIVE · CLOSE</button>
+        <button type="button" className="btn" title="Close the projector window" onClick={closeOutput}>CLOSE OUTPUT</button>
       ) : (
-        <button type="button" className="btn cyan" onClick={() => void goLive()}><span className="dot" />GO LIVE</button>
+        <button type="button" className="btn" title="Open the projector window with mapping outlines and points showing" onClick={() => void openOutput()}>OPEN OUTPUT</button>
+      )}
+      {live ? (
+        <button type="button" className="btn cyan on" title="Back to mapping: show outlines and points on the projector" onClick={endLive}><span className="dot" />LIVE · END</button>
+      ) : (
+        <button type="button" className="btn cyan" title="Hide all mapping helpers: the projector shows the show only" onClick={() => void goLive()}><span className="dot" />GO LIVE</button>
       )}
     </header>
   );

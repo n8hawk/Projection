@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { Engine } from './Engine';
 import { Stage } from './Stage';
 import { useStore, now } from '../state/store';
-import { openChannel } from '../state/sync';
+import { openChannel, type Overlay } from '../state/sync';
 import { applyRemotePads, pollGamepad } from './gamepad';
 
 // One WebGL canvas sits behind the whole editor UI. Each preview area in the
@@ -49,13 +49,17 @@ export function startLoop(canvas: HTMLCanvasElement): void {
   engine = new Engine(renderer);
   stage = new Stage(engine.output.texture);
 
+  const overlayOf = (s: ReturnType<typeof useStore.getState>): Overlay => ({
+    live: s.ui.live, outlines: s.ui.outlines, selectedId: s.ui.selectedSurfaceId, point: s.ui.selectedPoint,
+  });
   const channel = openChannel((m) => {
     if (m.type === 'hello') {
       const s = useStore.getState();
       channel.post({ type: 'state', show: s.show, transport: s.transport });
+      channel.post({ type: 'overlay', overlay: overlayOf(s) });
       s.setUi({ outputOpen: true });
     } else if (m.type === 'bye') {
-      useStore.getState().setUi({ outputOpen: false });
+      useStore.getState().setUi({ outputOpen: false, live: false });
     } else if (m.type === 'output-status') {
       outputStatus = { ...m, at: Date.now() };
     } else if (m.type === 'gamepad') {
@@ -66,6 +70,8 @@ export function startLoop(canvas: HTMLCanvasElement): void {
   // Push every show or transport change to the output window.
   useStore.subscribe((s, p) => {
     if (s.show !== p.show || s.transport !== p.transport) channel.post({ type: 'state', show: s.show, transport: s.transport });
+    const o = overlayOf(s), q = overlayOf(p);
+    if (o.live !== q.live || o.outlines !== q.outlines || o.selectedId !== q.selectedId || o.point !== q.point) channel.post({ type: 'overlay', overlay: o });
   });
 
   let frames = 0;

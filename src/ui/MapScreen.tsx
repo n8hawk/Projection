@@ -120,13 +120,18 @@ function MapCanvas() {
   const show = useStore((s) => s.show);
   const sel = useStore((s) => s.ui.selectedSurfaceId);
   const test = show.live.testPattern;
-  const [outlines, setOutlines] = useState(true);
-  const [point, setPoint] = useState(0);
+  // Kept in the store so the output window can draw the same helpers on the projector.
+  const outlines = useStore((s) => s.ui.outlines);
+  const point = useStore((s) => s.ui.selectedPoint);
+  const live = useStore((s) => s.ui.live);
+  const outputOpen = useStore((s) => s.ui.outputOpen);
   const svg = useRef<SVGSVGElement>(null);
   const { setUi, update, checkpoint } = useStore.getState();
+  const setPoint = (i: number) => setUi({ selectedPoint: i });
+  const setOutlines = (on: boolean) => setUi({ outlines: on });
   const selItem = findItem(show, sel);
 
-  useEffect(() => setPoint(0), [sel]);
+  useEffect(() => setUi({ selectedPoint: 0 }), [sel, setUi]);
 
   // Arrow keys nudge the selected point by one output pixel (Shift: 10).
   useEffect(() => {
@@ -201,6 +206,7 @@ function MapCanvas() {
     <main className="center">
       <div className="row">
         <span className="chip">PROJECTOR 1 VIEW · 1280×720</span>
+        {outputOpen && <span className="chip" style={{ color: live ? 'var(--active)' : 'var(--green)' }}>{live ? 'LIVE · HELPERS HIDDEN ON PROJECTOR' : 'MAPPING · HELPERS ON PROJECTOR'}</span>}
         <div className="spacer" />
         <button type="button" className={`btn sm ${test ? 'cyan on' : ''}`} onClick={() => update((d) => { d.live.testPattern = !d.live.testPattern; })}>TEST PATTERN</button>
         <button type="button" className={`btn sm ${outlines ? 'cyan' : ''}`} onClick={() => setOutlines(!outlines)}>OUTLINES</button>
