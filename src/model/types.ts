@@ -128,8 +128,16 @@ export interface Cue {
   time: number;
 }
 
+/**
+ * rehearsal: a simulated 3D room with objects and a virtual projector.
+ * blank: real-world mapping only, no simulated room or preview objects.
+ */
+export type ShowKind = 'rehearsal' | 'blank';
+
 export interface Show {
   version: 1;
+  /** Missing on shows saved before scene types existed; treat as rehearsal. */
+  kind?: ShowKind;
   name: string;
   duration: number;
   layers: Layer[]; // index 0 is the bottom layer

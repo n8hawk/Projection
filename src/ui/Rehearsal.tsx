@@ -1,7 +1,7 @@
 import { useCallback, useRef } from 'react';
 import { useStore, type StageView } from '../state/store';
 import { getStage } from '../engine/loop';
-import { Viewport } from './Viewport';
+import { Fit16x9, Viewport } from './Viewport';
 import { SourcesPanel } from './SourcesPanel';
 import { Timeline } from './Timeline';
 import { BoxCard, ClipCard, EffectRack, ProjectorCard } from './Properties';
@@ -126,21 +126,35 @@ export function StageView3D() {
 
 export function Rehearsal() {
   const boxId = useStore((s) => s.ui.selectedBoxId);
+  // A blank map has no simulated room: show the flat output instead of the 3D stage.
+  const blank = useStore((s) => s.show.kind === 'blank');
   return (
     <div className="work rehearsal">
       <SourcesPanel />
       <main className="center">
-        <StageView3D />
-        <div className="mini-row">
-          <Viewport kind="projector"><div className="vp-bar"><span className="chip">PROJECTOR VIEW</span></div></Viewport>
-          <Viewport kind="output"><div className="vp-bar"><span className="chip">OUTPUT · 1280×720</span></div></Viewport>
-        </div>
+        {blank ? (
+          <Fit16x9>
+            {(w, h) => (
+              <Viewport kind="output" style={{ width: w, height: h }}>
+                <div className="vp-bar"><span className="chip">OUTPUT · 1280×720</span></div>
+              </Viewport>
+            )}
+          </Fit16x9>
+        ) : (
+          <>
+            <StageView3D />
+            <div className="mini-row">
+              <Viewport kind="projector"><div className="vp-bar"><span className="chip">PROJECTOR VIEW</span></div></Viewport>
+              <Viewport kind="output"><div className="vp-bar"><span className="chip">OUTPUT · 1280×720</span></div></Viewport>
+            </div>
+          </>
+        )}
       </main>
       <aside className="panel" aria-label="Properties">
-        {boxId && <BoxCard boxId={boxId} />}
+        {!blank && boxId && <BoxCard boxId={boxId} />}
         <ClipCard />
         <EffectRack />
-        <ProjectorCard />
+        {!blank && <ProjectorCard />}
       </aside>
       <Timeline />
     </div>

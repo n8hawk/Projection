@@ -59,6 +59,7 @@ function SurfaceList() {
   const masks = useStore((s) => s.show.masks ?? []);
   const sel = useStore((s) => s.ui.selectedSurfaceId);
   const stale = useStore((s) => s.ui.mapStale);
+  const blank = useStore((s) => s.show.kind === 'blank');
   const { setUi, update } = useStore.getState();
   const manual = surfaces.filter((s) => !s.bind);
   const auto = surfaces.filter((s) => s.bind);
@@ -102,11 +103,15 @@ function SurfaceList() {
           </div>
         ))}
       </div>
-      <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {stale && <div className="stale">Objects or the projector moved since the last auto-map.</div>}
-        <button type="button" className={`btn ${stale ? 'green' : 'fill'}`} onClick={runAutoMap}>AUTO-MAP FROM 3D</button>
-        <span className="empty">Auto-map pins a surface to every face the virtual projector can see. Curved objects get a warp grid. Fine-tune by hand afterwards.</span>
-      </div>
+      {blank ? (
+        <span className="empty" style={{ marginTop: 'auto' }}>Point the projector at your real objects and turn on Go Live and the test pattern. Add a quad for each surface and drag its corners onto the object. Use a warp grid for curves and masks to keep light off things.</span>
+      ) : (
+        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {stale && <div className="stale">Objects or the projector moved since the last auto-map.</div>}
+          <button type="button" className={`btn ${stale ? 'green' : 'fill'}`} onClick={runAutoMap}>AUTO-MAP FROM 3D</button>
+          <span className="empty">Auto-map pins a surface to every face the virtual projector can see. Curved objects get a warp grid. Fine-tune by hand afterwards.</span>
+        </div>
+      )}
     </aside>
   );
 }
@@ -366,6 +371,13 @@ function SurfaceProps() {
     );
   }
 
+  if (show.kind === 'blank') {
+    return (
+      <div className="center">
+        <aside className="panel" aria-label="Surface properties">{body}</aside>
+      </div>
+    );
+  }
   return (
     <div className="center">
       <aside className="panel" aria-label="Surface properties" style={{ flex: 'none', maxHeight: '72%' }}>{body}</aside>

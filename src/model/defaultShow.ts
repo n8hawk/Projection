@@ -31,6 +31,7 @@ export function warehouseBoxes(): Show {
 
   return {
     version: 1,
+    kind: 'rehearsal',
     name: 'Warehouse boxes',
     duration: 32,
     layers,
@@ -55,3 +56,31 @@ export function warehouseBoxes(): Show {
     live: { brightness: 1, blackout: false, speed: 1, hue: 0, fxMix: 1, freeze: false, testPattern: false },
   };
 }
+
+/**
+ * Blank map: no simulated room, just one surface to pin onto a real object
+ * with the projector pointed at it. Add surfaces, warp grids and masks from there.
+ */
+export function blankMap(): Show {
+  const surface = { id: 'surf1', name: 'Surface 1', corners: [[0.2, 0.2], [0.8, 0.2], [0.8, 0.8], [0.2, 0.8]] as Show['surfaces'][number]['corners'] };
+  return {
+    version: 1,
+    kind: 'blank',
+    name: 'Blank map',
+    duration: 32,
+    layers: [{ id: 'L1', name: 'Content', color: '#90ECFF', surfaceIds: [surface.id], effects: [makeEffect('kaleido'), makeEffect('color'), makeEffect('trails')], muted: false }],
+    surfaces: [surface],
+    masks: [],
+    media: [],
+    cues: [{ id: 'c1', name: 'Start', time: 0 }],
+    clips: [clip('k1', 'L1', 'Neon Drift', 0, 32, gen('neon-drift'))],
+    // Unused while kind is 'blank', but kept so the show stays a complete document.
+    stage: { boxes: [], projector: { pos: [0, 1.7, 4.8], target: [0, 1.05, -1.4], throwRatio: 1.25, brightness: 1 }, ambient: 0.1 },
+    live: { brightness: 1, blackout: false, speed: 1, hue: 0, fxMix: 1, freeze: false, testPattern: false },
+  };
+}
+
+export const TEMPLATES = [
+  { id: 'rehearsal', label: 'Rehearsal', hint: 'Simulated room: back wall, three boxes and a virtual projector', make: warehouseBoxes },
+  { id: 'blank', label: 'Blank map', hint: 'Real-world mapping only: no simulated room, one surface to pin', make: blankMap },
+] as const;
