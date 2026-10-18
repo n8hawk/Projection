@@ -84,7 +84,7 @@ function Program() {
         <div className="card">
           <span className="label">INPUTS & OUTPUT</span>
           <div>
-            <div className="status-row"><span>Game controller</span><span className="v" style={{ color: gamepadName ? 'var(--green)' : 'var(--muted)' }}>{gamepadName ? '● CONNECTED' : '○ PRESS A BUTTON'}</span></div>
+            <div className="status-row"><span>Game controller</span><span className="v" style={{ color: gamepadName ? 'var(--green)' : 'var(--muted)' }}>{gamepadName ? `● ${gamepadName.toUpperCase()}` : '○ PRESS A BUTTON'}</span></div>
             <div className="status-row"><span>Output window</span><span className="v" style={{ color: status ? 'var(--green)' : 'var(--muted)' }}>{status ? `● ${status.width}×${status.height} · ${status.fps} FPS` : outputOpen ? '● OPEN' : '○ CLOSED'}</span></div>
           </div>
         </div>
