@@ -3,7 +3,7 @@ import { Engine } from './Engine';
 import { Stage } from './Stage';
 import { useStore, now } from '../state/store';
 import { openChannel } from '../state/sync';
-import { pollGamepad } from './gamepad';
+import { applyRemotePads, pollGamepad } from './gamepad';
 
 // One WebGL canvas sits behind the whole editor UI. Each preview area in the
 // UI registers its element; every frame we render into that element's
@@ -58,6 +58,9 @@ export function startLoop(canvas: HTMLCanvasElement): void {
       useStore.getState().setUi({ outputOpen: false });
     } else if (m.type === 'output-status') {
       outputStatus = { ...m, at: Date.now() };
+    } else if (m.type === 'gamepad') {
+      // Handled on arrival, not in the frame: a covered editor window may not be getting frames.
+      applyRemotePads(m.pads);
     }
   });
   // Push every show or transport change to the output window.

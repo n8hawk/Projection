@@ -1,4 +1,5 @@
 import type { Show, Transport } from '../model/types';
+import type { PadSnapshot } from '../engine/pads';
 
 // Editor and output window are separate pages on the same machine. They share
 // the show and the transport over a BroadcastChannel; both read Date.now(), so
@@ -9,7 +10,8 @@ export type SyncMessage =
   | { type: 'state'; show: Show; transport: Transport }
   | { type: 'transport'; transport: Transport }
   | { type: 'bye' }
-  | { type: 'output-status'; fps: number; width: number; height: number };
+  | { type: 'output-status'; fps: number; width: number; height: number }
+  | { type: 'gamepad'; pads: PadSnapshot[] };
 
 export const CHANNEL = 'projection-studio';
 

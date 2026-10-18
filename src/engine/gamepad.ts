@@ -1,38 +1,57 @@
 import { useStore } from '../state/store';
+import { readPads, type PadSnapshot } from './pads';
 
 // PS5 / any standard-mapping gamepad, polled once per frame.
 // The last controller touched wins. L-stick Y: speed. R-stick X: hue. R2: effects mix. Triangle: freeze.
 // Cross: play/pause. Options: blackout.
+//
+// The browser only hands controller input to the focused window. Once the
+// output window is fullscreen it has focus, so it reads the controllers and
+// forwards them to the editor (see output.tsx), which applies them here.
 
 const DEAD = 0.15;
 let prevButtons: boolean[] = [];
 let prevR2 = -1;
 let activeIndex = -1;
+let lastRemoteAt = 0;
 export let gamepadName: string | null = null;
 
-const isPlayStation = (p: Gamepad) => /054c|dualsense|dualshock/i.test(p.id);
-const isActive = (p: Gamepad) => p.buttons.some((b) => b.pressed) || p.axes.some((a) => Math.abs(a) > 0.5);
+const isPlayStation = (p: PadSnapshot) => /054c|dualsense|dualshock/i.test(p.id);
+const isActive = (p: PadSnapshot) => p.buttons.some((b) => b.pressed) || p.axes.some((a) => Math.abs(a) > 0.5);
 
 /**
  * Several controllers can be connected (e.g. a paired Xbox pad next to the
  * PS5 one). Use the last one someone touched; before any input, prefer a
  * PlayStation controller.
  */
-function pickPad(pads: Gamepad[]): Gamepad | null {
+function pickPad(pads: PadSnapshot[]): PadSnapshot | null {
   const touched = pads.find(isActive);
   if (touched) activeIndex = touched.index;
   return pads.find((p) => p.index === activeIndex) ?? pads.find(isPlayStation) ?? pads[0] ?? null;
 }
 
-function friendlyName(p: Gamepad): string {
+function friendlyName(p: PadSnapshot): string {
   if (/dualsense|0ce6|0df2/i.test(p.id)) return 'PS5 controller';
   if (isPlayStation(p)) return 'PlayStation controller';
   if (/xbox|xinput|045e/i.test(p.id)) return 'Xbox controller';
   return p.id.replace(/\s*\(.*\)\s*$/, '') || 'Controller';
 }
 
+/** Called every editor frame. Skipped while another window (the output) has focus and forwards input instead. */
 export function pollGamepad(dt: number): void {
-  const pads = [...(navigator.getGamepads?.() ?? [])].filter((p): p is Gamepad => !!p && p.connected);
+  if (!document.hasFocus() && performance.now() - lastRemoteAt < 500) return;
+  applyPads(readPads(), dt);
+}
+
+/** Controller input forwarded from the output window. */
+export function applyRemotePads(pads: PadSnapshot[]): void {
+  const t = performance.now();
+  const dt = Math.min(0.1, (t - lastRemoteAt) / 1000);
+  lastRemoteAt = t;
+  applyPads(pads, dt);
+}
+
+function applyPads(pads: PadSnapshot[], dt: number): void {
   const before = activeIndex;
   const pad = pickPad(pads);
   gamepadName = pad ? friendlyName(pad) : null;

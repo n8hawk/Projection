@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Engine } from './engine/Engine';
 import { openChannel } from './state/sync';
+import { readPads } from './engine/pads';
 import { transportTime } from './model/time';
 import type { Show, Transport } from './model/types';
 
@@ -39,6 +40,11 @@ let frames = 0;
 let last = performance.now();
 const frame = () => {
   requestAnimationFrame(frame);
+  // Controllers only report to the focused window; when that's us, pass them to the editor.
+  if (document.hasFocus()) {
+    const pads = readPads();
+    if (pads.length) channel.post({ type: 'gamepad', pads });
+  }
   const w = window.innerWidth, h = window.innerHeight;
   const size = renderer.getSize(new THREE.Vector2());
   if (size.x !== w || size.y !== h) renderer.setSize(w, h, false);
