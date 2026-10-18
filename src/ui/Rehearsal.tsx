@@ -102,7 +102,7 @@ export function StageView3D() {
       </div>
       <div className="vp-info">
         PROJECTOR 1 · VIRTUAL · THROW {proj.throwRatio.toFixed(2)}<br />
-        {boxes} BOXES · DRAG A BOX TO MOVE IT{view === 'audience' ? ' · DRAG EMPTY SPACE TO ORBIT' : ''}
+        {boxes} OBJECTS · DRAG AN OBJECT TO MOVE IT{view === 'audience' ? ' · DRAG EMPTY SPACE TO ORBIT' : ''}
       </div>
       <div className="vp-actions">
         <button type="button" className="btn sm" onClick={() => {
@@ -112,6 +112,13 @@ export function StageView3D() {
           });
           setUi({ selectedBoxId: id, mapStale: true });
         }}>+ BOX</button>
+        <button type="button" className="btn sm" onClick={() => {
+          const id = uid('cyl');
+          update((d) => {
+            d.stage.boxes.push({ id, name: `Cylinder ${d.stage.boxes.filter((b) => b.shape === 'cylinder').length + 1}`, shape: 'cylinder', pos: [-0.6, 0, 0.4], size: [0.7, 1.1, 0.7], rotY: 0 });
+          });
+          setUi({ selectedBoxId: id, mapStale: true });
+        }}>+ CYLINDER</button>
       </div>
     </Viewport>
   );

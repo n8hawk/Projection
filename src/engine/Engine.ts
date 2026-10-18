@@ -1,11 +1,11 @@
 import * as THREE from 'three';
-import type { Clip, Effect, Layer, Show } from '../model/types';
+import type { Clip, Effect, Layer, Mask, Show, Surface } from '../model/types';
 import { activeClip } from '../model/time';
 import {
   COLOR_FRAG, COPY_FRAG, FULLSCREEN_VERT, GENERATORS, KALEIDO_FRAG, MASTER_FRAG, MEDIA_FRAG,
-  PIN_FRAG, PIN_VERT, TRAILS_FRAG, generatorFrag,
+  MASK_FRAG, MASK_VERT, PIN_FRAG, PIN_VERT, TRAILS_FRAG, generatorFrag,
 } from './shaders';
-import { makeQuadGeometry, updateQuadGeometry } from './quad';
+import { makeMeshGeometry, makePolygonGeometry, makeQuadGeometry, updateQuadGeometry } from './quad';
 import { MediaPool } from './media';
 import { OUTPUT_ASPECT, OUTPUT_H, OUTPUT_W } from './projector';
 
@@ -39,7 +39,6 @@ interface LayerState {
   phase: number;
   lastTime: number;
   lastClip: string | null;
-  pinMat: THREE.ShaderMaterial;
 }
 
 const TEST_FRAG = /* glsl */ `
@@ -82,6 +81,9 @@ export class Engine {
   private layers = new Map<string, LayerState>();
   private pinScene = new THREE.Scene();
   private pins = new Map<string, THREE.Mesh>();
+  private pinMats = new Map<string, THREE.ShaderMaterial>();
+  private maskMeshes = new Map<string, THREE.Mesh>();
+  private maskMat = new THREE.ShaderMaterial({ vertexShader: MASK_VERT, fragmentShader: MASK_FRAG, depthTest: false, depthWrite: false, side: THREE.DoubleSide });
   private testMats = TEST_COLORS.map((c) => new THREE.ShaderMaterial({
     vertexShader: PIN_VERT, fragmentShader: TEST_FRAG, uniforms: { uColor: { value: new THREE.Color(c) } },
     depthTest: false, depthWrite: false,
@@ -120,12 +122,7 @@ export class Engine {
     let s = this.layers.get(id);
     if (!s) {
       s = {
-        a: makeRT(), b: makeRT(), trails: new Map(), phase: 0, lastTime: -1, lastClip: null,
-        pinMat: new THREE.ShaderMaterial({
-          vertexShader: PIN_VERT, fragmentShader: PIN_FRAG,
-          uniforms: { tLayer: { value: null }, uOpacity: { value: 1 } },
-          transparent: true, depthTest: false, depthWrite: false,
-        }),
+        a: makeRT(), b: makeRT(), trails: new Map(), phase: 0, lastTime: -1, lastClip: null
       };
       this.layers.set(id, s);
     }
@@ -204,17 +201,65 @@ export class Engine {
     }
   }
 
-  private pin(key: string, corners: Show['surfaces'][number]['corners'], mat: THREE.Material, order: number): void {
+  /** Places one surface's geometry (corner pin or warp grid) in the composite. */
+  private pin(key: string, surface: Surface, mat: THREE.Material, order: number): void {
     let mesh = this.pins.get(key);
     if (!mesh) {
-      mesh = new THREE.Mesh(makeQuadGeometry(), mat);
+      mesh = new THREE.Mesh(new THREE.BufferGeometry(), mat);
       mesh.frustumCulled = false;
       this.pins.set(key, mesh);
     }
-    updateQuadGeometry(mesh.geometry, corners);
+    if (surface.mesh) {
+      const geoKey = JSON.stringify(surface.mesh);
+      if (mesh.userData.geoKey !== geoKey) {
+        mesh.geometry.dispose();
+        mesh.geometry = makeMeshGeometry(surface.mesh);
+        mesh.userData.geoKey = geoKey;
+      }
+    } else {
+      if (mesh.userData.geoKey !== 'quad') {
+        mesh.geometry.dispose();
+        mesh.geometry = makeQuadGeometry();
+        mesh.userData.geoKey = 'quad';
+      }
+      updateQuadGeometry(mesh.geometry, surface.corners);
+    }
     mesh.material = mat;
     mesh.renderOrder = order;
     this.pinScene.add(mesh);
+  }
+
+  private surfaceMat(key: string): THREE.ShaderMaterial {
+    let m = this.pinMats.get(key);
+    if (!m) {
+      m = new THREE.ShaderMaterial({
+        vertexShader: PIN_VERT, fragmentShader: PIN_FRAG,
+        uniforms: { tLayer: { value: null }, uOpacity: { value: 1 }, uFeather: { value: 0 }, uGain: { value: 1 } },
+        transparent: true, depthTest: false, depthWrite: false, side: THREE.DoubleSide,
+      });
+      this.pinMats.set(key, m);
+    }
+    return m;
+  }
+
+  private drawMasks(masks: Mask[], order: number): void {
+    for (const mask of masks) {
+      if (mask.points.length < 3) continue;
+      let mesh = this.maskMeshes.get(mask.id);
+      if (!mesh) {
+        mesh = new THREE.Mesh(new THREE.BufferGeometry(), this.maskMat);
+        mesh.frustumCulled = false;
+        this.maskMeshes.set(mask.id, mesh);
+      }
+      const geoKey = JSON.stringify(mask.points);
+      if (mesh.userData.geoKey !== geoKey) {
+        mesh.geometry.dispose();
+        mesh.geometry = makePolygonGeometry(mask.points);
+        mesh.userData.geoKey = geoKey;
+      }
+      mesh.renderOrder = order++;
+      this.pinScene.add(mesh);
+    }
   }
 
   render(show: Show, time: number, playing: boolean): void {
@@ -225,7 +270,7 @@ export class Engine {
     this.pinScene.clear();
     let order = 0;
     if (show.live.testPattern) {
-      show.surfaces.forEach((s, i) => this.pin(`test:${s.id}`, s.corners, this.testMats[i % this.testMats.length], order++));
+      show.surfaces.forEach((s, i) => this.pin(`test:${s.id}`, s, this.testMats[i % this.testMats.length], order++));
     } else {
       for (const layer of show.layers) {
         if (layer.muted || layer.surfaceIds.length === 0) continue;
@@ -233,15 +278,20 @@ export class Engine {
         if (!clip) { this.layerState(layer.id).lastClip = null; continue; }
         const tex = this.renderLayer(layer, clip, show, time, playing);
         if (!tex) continue;
-        const st = this.layerState(layer.id);
-        st.pinMat.uniforms.tLayer.value = tex;
-        st.pinMat.uniforms.uOpacity.value = clip.params.opacity;
         for (const sid of layer.surfaceIds) {
           const s = show.surfaces.find((x) => x.id === sid);
-          if (s) this.pin(`${layer.id}:${s.id}`, s.corners, st.pinMat, order++);
+          if (!s) continue;
+          const key = `${layer.id}:${s.id}`;
+          const m = this.surfaceMat(key);
+          m.uniforms.tLayer.value = tex;
+          m.uniforms.uOpacity.value = clip.params.opacity;
+          m.uniforms.uFeather.value = s.feather ?? 0;
+          m.uniforms.uGain.value = s.brightness ?? 1;
+          this.pin(key, s, m, order++);
         }
       }
     }
+    this.drawMasks(show.masks ?? [], order);
     this.media.endFrame();
     this.renderer.setRenderTarget(this.comp);
     this.renderer.setClearColor(0x000000, 1);

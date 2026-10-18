@@ -1,5 +1,6 @@
 import type { Clip, ClipSource, Show } from './types';
 import { detectFaces } from '../engine/projector';
+import { quadToMesh } from '../engine/quad';
 import { GENERATORS } from '../engine/shaders';
 import { uid } from './time';
 
@@ -17,14 +18,19 @@ export function autoMap(show: Show): { added: number; updated: number; removed: 
     const existing = show.surfaces.find((s) => s.id === f.id);
     if (existing) {
       existing.corners = f.corners;
+      if (f.mesh) existing.mesh = f.mesh;
+      else if (existing.mesh) existing.mesh = quadToMesh(f.corners, existing.mesh.cols, existing.mesh.rows);
       updated++;
     } else {
       show.surfaces.push(f);
       added++;
-      for (const layer of show.layers) {
-        const targetsBox = layer.surfaceIds.some((id) => show.surfaces.find((s) => s.id === id)?.bind?.boxId === f.bind!.boxId);
-        if (targetsBox) layer.surfaceIds.push(f.id);
-      }
+      // Join the layers already playing on this object; for a new object, the
+      // layers that play on other detected faces.
+      const boundTo = (layerIds: string[], test: (boxId: string) => boolean) =>
+        layerIds.some((id) => { const b = show.surfaces.find((s) => s.id === id)?.bind; return !!b && test(b.boxId); });
+      let targets = show.layers.filter((l) => boundTo(l.surfaceIds, (b) => b === f.bind!.boxId));
+      if (!targets.length) targets = show.layers.filter((l) => boundTo(l.surfaceIds, () => true));
+      for (const layer of targets) layer.surfaceIds.push(f.id);
     }
   }
   const gone = show.surfaces.filter((s) => s.bind && !foundIds.has(s.id)).map((s) => s.id);

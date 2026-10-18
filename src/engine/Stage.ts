@@ -151,7 +151,7 @@ export class Stage {
     const sel = selectedBox ? this.boxMeshes.get(selectedBox) : undefined;
     if (sel) {
       this.selection.geometry.dispose();
-      this.selection.geometry = new THREE.EdgesGeometry((sel.geometry as THREE.BoxGeometry));
+      this.selection.geometry = new THREE.EdgesGeometry(sel.geometry, 30);
       this.selection.matrixAutoUpdate = false;
       this.selection.matrix.copy(sel.matrix);
       this.selection.matrixWorldNeedsUpdate = true;
@@ -209,7 +209,9 @@ export class Stage {
 
   private placeBox(mesh: THREE.Mesh, b: BoxDef): void {
     mesh.geometry.dispose();
-    const g = new THREE.BoxGeometry(b.size[0], b.size[1], b.size[2]);
+    const g = b.shape === 'cylinder'
+      ? new THREE.CylinderGeometry(b.size[0] / 2, b.size[0] / 2, b.size[1], 48)
+      : new THREE.BoxGeometry(b.size[0], b.size[1], b.size[2]);
     g.translate(0, b.size[1] / 2, 0);
     mesh.geometry = g;
     mesh.matrixAutoUpdate = false;

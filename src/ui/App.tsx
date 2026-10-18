@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useStore, now } from '../state/store';
 import { TopBar } from './TopBar';
 import { Rehearsal } from './Rehearsal';
-import { MapScreen } from './MapScreen';
+import { MapScreen, deleteMapItem } from './MapScreen';
 import { LiveScreen } from './LiveScreen';
 import { Toast } from './hooks';
 
@@ -32,10 +32,7 @@ function useShortcuts() {
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
         if (s.ui.tab === 'map' && s.ui.selectedSurfaceId) {
           const id = s.ui.selectedSurfaceId;
-          s.update((d) => {
-            d.surfaces = d.surfaces.filter((x) => x.id !== id);
-            d.layers.forEach((l) => (l.surfaceIds = l.surfaceIds.filter((x) => x !== id)));
-          });
+          s.update((d) => deleteMapItem(d, id));
           s.setUi({ selectedSurfaceId: null });
         } else if (s.ui.tab === 'rehearsal' && s.ui.selectedBoxId) {
           const id = s.ui.selectedBoxId;

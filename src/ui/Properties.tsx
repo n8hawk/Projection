@@ -36,12 +36,12 @@ export function BoxCard({ boxId }: { boxId: string }) {
         <div>
           <div className="label muted">SELECTED OBJECT</div>
           <div className="clip-title">{box.name}</div>
-          <div className="clip-sub">BOX · {box.size.map((v) => v.toFixed(2)).join(' × ')} M</div>
+          <div className="clip-sub">{box.shape === 'cylinder' ? `CYLINDER · ⌀ ${box.size[0].toFixed(2)} × ${box.size[1].toFixed(2)} M` : `BOX · ${box.size.map((v) => v.toFixed(2)).join(' × ')} M`}</div>
         </div>
         <span className="badge">STAGE</span>
       </div>
       <div className="knobs three">
-        {BOX_PARAMS.map((p) => (
+        {BOX_PARAMS.filter((p) => !(box.shape === 'cylinder' && (p.key === 'd' || p.key === 'r'))).map((p) => box.shape === 'cylinder' && p.key === 'w' ? { ...p, label: 'DIAMETER' } : p).map((p) => (
           <Knob key={p.key} def={p} value={p.get(box)} size={40} onStart={checkpoint} onChange={(v) => {
             update((d) => { const b = d.stage.boxes.find((x) => x.id === boxId); if (b) p.set(b, v); }, { record: false });
             setUi({ mapStale: true });
@@ -53,7 +53,7 @@ export function BoxCard({ boxId }: { boxId: string }) {
         <button type="button" className="btn sm danger" onClick={() => {
           update((d) => { d.stage.boxes = d.stage.boxes.filter((b) => b.id !== boxId); });
           setUi({ selectedBoxId: null, mapStale: true });
-        }}>DELETE BOX</button>
+        }}>DELETE</button>
       </div>
     </div>
   );

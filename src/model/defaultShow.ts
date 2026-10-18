@@ -35,6 +35,7 @@ export function warehouseBoxes(): Show {
     duration: 32,
     layers,
     surfaces,
+    masks: [],
     media: [],
     cues: [
       { id: 'c1', name: 'Intro', time: 0 },

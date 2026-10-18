@@ -210,10 +210,23 @@ export const PIN_FRAG = /* glsl */ `
 varying vec3 vUvq;
 uniform sampler2D tLayer;
 uniform float uOpacity;
+uniform float uFeather;
+uniform float uGain;
 void main() {
   vec2 uv = vUvq.xy / vUvq.z;
-  gl_FragColor = vec4(texture2D(tLayer, uv).rgb, uOpacity);
+  // Soft edge: fade out over uFeather of the surface's width/height at every border.
+  float edge = min(min(uv.x, 1.0 - uv.x), min(uv.y, 1.0 - uv.y));
+  float a = uFeather > 0.0 ? smoothstep(0.0, uFeather, edge) : 1.0;
+  gl_FragColor = vec4(texture2D(tLayer, uv).rgb * uGain, uOpacity * a);
 }`;
+
+export const MASK_VERT = /* glsl */ `
+void main() { gl_Position = vec4(position.xy, 0.0, 1.0); }
+`;
+
+export const MASK_FRAG = /* glsl */ `
+void main() { gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0); }
+`;
 
 export const MASTER_FRAG = /* glsl */ `
 varying vec2 vUv;
