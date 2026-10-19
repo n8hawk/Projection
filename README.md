@@ -13,6 +13,8 @@ npm run build      # production build in dist/ (works offline as a PWA)
 npm run preview    # serve the build
 ```
 
+On Windows, double-click `Start Projection Studio.bat` (or a desktop shortcut to it). It starts the dev server in a minimized "Projection Studio server" window if it isn't already running, then opens the editor in Chrome, or Edge if Chrome isn't installed. Close that window to stop the server.
+
 ## What's in phase 1
 
 - **Rehearsal**: 3D room with a back wall, three boxes and a virtual projector that throws the real output onto them (with shadows). Orbit the camera, drag boxes across the floor, add or delete boxes, and set the projector's throw ratio, distance, height, aim, brightness and room light. Views: Audience, Top, Projector POV.
