@@ -24,8 +24,17 @@ body { font: 13px/1.4 Archivo, system-ui, 'Segoe UI', sans-serif; }
   backdrop-filter: blur(6px);
 }
 .panel.hidden { display: none; }
+.panel-head { display: flex; align-items: center; justify-content: space-between; margin: 0 0 8px; }
+.panel-head .icon, .show-panel {
+  background: var(--raised); color: var(--text); border: 1px solid transparent;
+  border-radius: 6px; padding: 4px 10px; font: inherit; font-size: 11px; cursor: pointer;
+}
+.panel-head .icon:hover, .show-panel:hover { border-color: var(--active); }
+.show-panel { position: fixed; top: 12px; right: 12px; display: none; opacity: 0.6; }
+.show-panel:hover { opacity: 1; }
+.show-panel.visible { display: block; }
 .panel h1 {
-  margin: 0 0 8px; font-size: 11px; font-weight: 600; letter-spacing: 0.14em;
+  margin: 0; font-size: 11px; font-weight: 600; letter-spacing: 0.14em;
   text-transform: uppercase; color: var(--active);
 }
 .section { border-top: 1px solid var(--raised); padding: 6px 0; }

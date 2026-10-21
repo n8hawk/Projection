@@ -18,9 +18,16 @@ export class PanelBuilder {
   /** Re-read every control from its getter (after a reset or calibration). */
   refresh(): void { this.refreshers.forEach((r) => r()); }
 
+  /** A collapsible section; its open/closed state is remembered per title. */
   section(title: string, open = true): El {
     const d = h('details', 'section');
-    d.open = open;
+    const key = `view-dependent-demo/section/${title}`;
+    let saved: string | null = null;
+    try { saved = localStorage.getItem(key); } catch { /* storage unavailable */ }
+    d.open = saved === null ? open : saved === '1';
+    d.addEventListener('toggle', () => {
+      try { localStorage.setItem(key, d.open ? '1' : '0'); } catch { /* ignore */ }
+    });
     d.append(h('summary', undefined, title));
     this.root.append(d);
     return d;

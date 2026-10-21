@@ -86,7 +86,23 @@ const panel = new PanelBuilder(panelEl, () => {
   saveSettings(settings);
 });
 
-panelEl.append(h('h1', undefined, 'View-dependent demo'));
+const header = h('div', 'panel-head');
+header.append(h('h1', undefined, 'View-dependent demo'));
+const hideBtn = h('button', 'icon', 'Hide');
+hideBtn.type = 'button';
+hideBtn.title = 'Hide the panel (H)';
+header.append(hideBtn);
+panelEl.append(header);
+const showBtn = h('button', 'show-panel', 'Settings');
+showBtn.type = 'button';
+showBtn.title = 'Show the panel (H)';
+document.body.append(showBtn);
+function setPanelHidden(hidden: boolean): void {
+  panelEl.classList.toggle('hidden', hidden);
+  showBtn.classList.toggle('visible', hidden);
+}
+hideBtn.addEventListener('click', () => setPanelHidden(true));
+showBtn.addEventListener('click', () => setPanelHidden(false));
 
 const trk = panel.section('Tracking');
 panel.select(trk, 'Source', [['webcam', 'Webcam (face)'], ['mouse', 'Mouse']], {
@@ -99,7 +115,8 @@ trk.append(preview);
 const readout = h('pre', 'readout');
 trk.append(readout);
 
-const scr = panel.section('Screen');
+// Calibration is set once per machine, so it starts folded away.
+const scr = panel.section('Calibration: screen', false);
 const PRESETS: [string, string, number, number, number][] = [
   ['13.3-1610', '13.3" 16:10', 13.3, 16, 10],
   ['14-1610', '14" 16:10', 14, 16, 10],
@@ -128,7 +145,7 @@ panel.number(scr, 'Height', { step: 0.1, unit: 'cm', get: () => settings.calibra
 panel.toggle(scr, 'Follow window position when not fullscreen', { get: () => settings.followWindow, set: (v) => { settings.followWindow = v; } });
 panel.note(scr, 'Measure the lit area of the panel, not the bezel. Fullscreen (F) gives the most accurate result.');
 
-const cam = panel.section('Webcam');
+const cam = panel.section('Calibration: webcam', false);
 panel.number(cam, 'Offset X', { step: 0.1, unit: 'cm', get: () => settings.calibration.camXCm, set: (v) => { settings.calibration.camXCm = v; } });
 panel.number(cam, 'Offset Y', { step: 0.1, unit: 'cm', get: () => settings.calibration.camYCm, set: (v) => { settings.calibration.camYCm = v; } });
 panel.number(cam, 'Offset Z', { step: 0.1, unit: 'cm', get: () => settings.calibration.camZCm, set: (v) => { settings.calibration.camZCm = v; } });
@@ -213,7 +230,7 @@ function toggleFullscreen(): void {
 window.addEventListener('keydown', (e) => {
   if ((e.target as HTMLElement).closest('input, select, textarea')) return;
   const k = e.key.toLowerCase();
-  if (k === 'h') panelEl.classList.toggle('hidden');
+  if (k === 'h') setPanelHidden(!panelEl.classList.contains('hidden'));
   else if (k === 'f') toggleFullscreen();
   else if (k === 'm') { void setMode(settings.mode === 'webcam' ? 'mouse' : 'webcam').then(() => panel.refresh()); }
   else if (k === 'c') calibrateFov();
