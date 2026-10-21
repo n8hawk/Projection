@@ -35,6 +35,8 @@ export class DualSenseGyro {
   private bias = { x: 0, y: 0, z: 0 };
   private acc = { pitch: 0, yaw: 0, roll: 0 };
   private biasSamples = 0;
+  private stillFor = 0;
+  private lastTs: number | null = null;
 
   get connected(): boolean { return !!this.device && performance.now() - this.lastReport < 500; }
 
@@ -76,6 +78,7 @@ export class DualSenseGyro {
     this.device?.removeEventListener('inputreport', this.onReport);
     this.device = dev;
     this.biasSamples = 0;
+    this.lastTs = null;
     dev.addEventListener('inputreport', this.onReport);
   }
 
@@ -90,11 +93,21 @@ export class DualSenseGyro {
     const gy = d.getInt16(base + 17, true);
     const gz = d.getInt16(base + 19, true);
 
-    // Learn the drift from the first ~half second, then keep nudging it
-    // whenever the controller is nearly still.
-    const still = Math.abs(gx - this.bias.x) + Math.abs(gy - this.bias.y) + Math.abs(gz - this.bias.z) < 3 * COUNTS_PER_DPS;
-    if (this.biasSamples < 100 || still) {
-      const k = this.biasSamples < 100 ? 1 / ++this.biasSamples : 0.002;
+    // The controller's own clock (1/3 µs ticks) times the samples, so bursts
+    // of reports bunched up by USB or Bluetooth still integrate correctly.
+    const ts = d.getUint32(base + 27, true);
+    const now = performance.now();
+    let dt = this.lastTs === null ? 0 : ((ts - this.lastTs) >>> 0) / 3e6;
+    if (!(dt > 0 && dt < 0.05)) dt = this.lastReport ? Math.min(0.02, (now - this.lastReport) / 1000) : 0;
+    this.lastTs = ts;
+
+    // Learn the drift from the first ~half second, then refine it only after
+    // the controller has been held still for a while. Adapting during slow,
+    // deliberate pointing would eat that motion and make aiming feel sticky.
+    const still = Math.abs(gx - this.bias.x) + Math.abs(gy - this.bias.y) + Math.abs(gz - this.bias.z) < 1.5 * COUNTS_PER_DPS;
+    this.stillFor = still ? this.stillFor + dt : 0;
+    if (this.biasSamples < 100 || this.stillFor > 0.5) {
+      const k = this.biasSamples < 100 ? 1 / ++this.biasSamples : 0.0005;
       this.bias.x += (gx - this.bias.x) * k;
       this.bias.y += (gy - this.bias.y) * k;
       this.bias.z += (gz - this.bias.z) * k;
@@ -105,8 +118,6 @@ export class DualSenseGyro {
       roll: (gz - this.bias.z) / COUNTS_PER_DPS,
     };
     if (this.biasSamples < 100) this.rates = { pitch: 0, yaw: 0, roll: 0 };
-    const now = performance.now();
-    const dt = this.lastReport ? Math.min(0.02, (now - this.lastReport) / 1000) : 0;
     this.lastReport = now;
     this.acc.pitch += this.rates.pitch * dt;
     this.acc.yaw += this.rates.yaw * dt;

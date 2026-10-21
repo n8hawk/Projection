@@ -25,10 +25,15 @@ export interface DemoSettings {
   /** Remembered placement per scene id, since every capture sits differently. */
   placements: Record<string, SplatPlacement>;
   flashlight: FlashlightSettings;
+  /** Bumped when flashlight defaults change, so only those reset. */
+  flashlightV: number;
   aim: AimSettings;
   /** Show a dot where the aim ray hits. */
   showAimDot: boolean;
 }
+
+// v2: mild ambient light and a narrower beam.
+const FLASHLIGHT_V = 2;
 
 export const SAMPLE_SPLAT = 'https://sparkjs.dev/assets/splats/butterfly.spz';
 
@@ -53,6 +58,7 @@ export function defaultSettings(): DemoSettings {
     placement: defaultPlacement(),
     placements: {},
     flashlight: { ...DEFAULT_FLASHLIGHT },
+    flashlightV: FLASHLIGHT_V,
     aim: { ...DEFAULT_AIM },
     showAimDot: true,
   };
@@ -76,7 +82,9 @@ export function loadSettings(): DemoSettings {
       filter: { ...d.filter, ...s.filter },
       placement: { ...d.placement, ...s.placement },
       placements: { ...s.placements },
-      flashlight: { ...d.flashlight, ...s.flashlight },
+      // Older saved flashlight settings mask new defaults: reset just those.
+      flashlight: s.flashlightV === FLASHLIGHT_V ? { ...d.flashlight, ...s.flashlight } : d.flashlight,
+      flashlightV: FLASHLIGHT_V,
       aim: { ...d.aim, ...s.aim },
     };
   } catch { return d; }

@@ -54,8 +54,7 @@ const aimDot = new THREE.Mesh(
 aimDot.renderOrder = 10;
 aimDot.visible = false;
 scene.add(aimDot);
-const raycaster = new THREE.Raycaster();
-let rayT = 0;
+const aimHit = new THREE.Vector3();
 
 function setFlashlight(on: boolean): void {
   settings.flashlight.enabled = on;
@@ -245,7 +244,7 @@ panel.buttons(fl, flButtons);
 panel.note(fl, gyro
   ? 'Connect PS5 gyro to aim by pointing the controller (Chrome/Edge). Without it, the right stick or the mouse aims.'
   : 'This browser has no WebHID, so aim with the right stick or the mouse (use Chrome or Edge for the gyro).');
-panel.slider(fl, 'Beam angle', { min: 4, max: 40, step: 0.5, unit: '°', get: () => settings.flashlight.angleDeg, set: (v) => { settings.flashlight.angleDeg = v; } });
+panel.slider(fl, 'Beam angle', { min: 2, max: 40, step: 0.5, unit: '°', get: () => settings.flashlight.angleDeg, set: (v) => { settings.flashlight.angleDeg = v; } });
 panel.slider(fl, 'Soft edge', { min: 0, max: 10, step: 0.1, unit: ' cm', get: () => settings.flashlight.softness * 100, set: (v) => { settings.flashlight.softness = v / 100; } });
 panel.slider(fl, 'Reach', { min: 10, max: 150, step: 1, digits: 0, unit: ' cm', get: () => settings.flashlight.reach * 100, set: (v) => { settings.flashlight.reach = v / 100; } });
 panel.slider(fl, 'Darkness', { min: 0, max: 1, step: 0.01, digits: 2, get: () => 1 - settings.flashlight.ambient, set: (v) => { settings.flashlight.ambient = 1 - v; } });
@@ -413,7 +412,7 @@ function updateInteraction(now: number, eye: Vec3): void {
   if (pad.edge(PS.triangle)) setFlashlight(!settings.flashlight.enabled);
   if (pad.edge(PS.l1) || pad.edge(PS.r1)) {
     const f = settings.flashlight;
-    f.angleDeg = THREE.MathUtils.clamp(f.angleDeg * (pad.edge(PS.r1) ? 1.25 : 0.8), 4, 40);
+    f.angleDeg = THREE.MathUtils.clamp(f.angleDeg * (pad.edge(PS.r1) ? 1.25 : 0.8), 2, 40);
     saveSettings(settings);
     panel.refresh();
   }
@@ -428,20 +427,15 @@ function updateInteraction(now: number, eye: Vec3): void {
   const ray = aim.update(dt, eye, rect, pad, gyro, settings.roomDepthCm / 200);
   flashlight.update(ray);
 
-  // Where the ray lands: the aim dot now, spray/shots later. Splat hit
-  // tests run on the CPU, so a few times a second is plenty.
+  // Where the ray lands: the aim dot now, spray/shots later. An analytic hit
+  // test every frame keeps the dot glued to the beam (splat raycasts on the
+  // CPU were too slow to run per frame and made the dot trail behind).
   const wantDot = on && settings.showAimDot && ray.source !== 'none';
-  if (!wantDot) { aimDot.visible = false; return; }
-  if (now - rayT > 80) {
-    rayT = now;
-    raycaster.set(ray.origin, ray.dir);
-    raycaster.near = 0.05;
-    const hit = raycaster.intersectObjects(world.raycastTargets, true).find((i) => !(i.object instanceof THREE.LineSegments));
-    aimDot.visible = !!hit;
-    if (hit) {
-      aimDot.position.copy(hit.point);
-      aimDot.lookAt(ray.origin);
-    }
+  const hit = wantDot ? world.hitTest(ray.origin, ray.dir, aimHit) : null;
+  aimDot.visible = !!hit;
+  if (hit) {
+    aimDot.position.copy(hit);
+    aimDot.lookAt(ray.origin);
   }
 }
 

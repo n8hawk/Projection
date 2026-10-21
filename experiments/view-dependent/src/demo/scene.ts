@@ -156,11 +156,13 @@ export class DemoScene {
   private lines: THREE.LineSegments | null = null;
   private walls: SplatMesh | null = null;
   private strings: THREE.LineSegments | null = null;
+  private targets: { p: THREE.Vector3Tuple; r: number }[] = [];
 
   /** Swap the glowing grid lines for solid walls that a light can reveal. */
   set litRoom(v: boolean) {
     this.lit = v;
-    if (this.lines) this.lines.visible = !v;
+    // Faint rather than hidden in the dark, so the room stays easy to read.
+    if (this.lines) (this.lines.material as THREE.LineBasicMaterial).opacity = v ? 0.1 : 0.28;
     // Lines can't be lit, so they'd glow in the dark.
     if (this.strings) this.strings.visible = !v;
     // Fade rather than hide: changing which splat meshes are visible makes
@@ -168,9 +170,40 @@ export class DemoScene {
     if (this.walls) this.walls.opacity = v ? 1 : 0;
   }
 
-  /** Splat meshes an aim ray can hit. */
-  get raycastTargets(): THREE.Object3D[] {
-    return [this.procedural.visible ? this.procedural : this.loadedHolder, ...(this.lit && this.room.visible && this.walls ? [this.walls] : [])];
+  /**
+   * Where a ray first meets the built-in targets or the room's walls, solved
+   * analytically so it's cheap enough to run every frame. Loaded captures
+   * aren't tested; the ray lands on the wall behind them.
+   */
+  hitTest(origin: THREE.Vector3, dir: THREE.Vector3, out: THREE.Vector3): THREE.Vector3 | null {
+    let best = Infinity;
+    if (this.procedural.visible) {
+      for (const t of this.targets) {
+        // Ray-sphere, nearest hit in front of the origin.
+        const ox = origin.x - t.p[0], oy = origin.y - t.p[1], oz = origin.z - t.p[2];
+        const b = ox * dir.x + oy * dir.y + oz * dir.z;
+        const c = ox * ox + oy * oy + oz * oz - t.r * t.r;
+        const disc = b * b - c;
+        if (disc < 0) continue;
+        const d = -b - Math.sqrt(disc);
+        if (d > 0.05 && d < best) best = d;
+      }
+    }
+    if (this.room.visible) {
+      // Inside of the box behind the glass: x = ±W/2, y = ±H/2, z = -D.
+      const { width: W, height: H, depth: D } = this.layout;
+      const planes: [number, number][] = [[0, -W / 2], [0, W / 2], [1, -H / 2], [1, H / 2], [2, -D]];
+      for (const [axis, at] of planes) {
+        const o = origin.getComponent(axis), v = dir.getComponent(axis);
+        if (Math.abs(v) < 1e-6) continue;
+        const d = (at - o) / v;
+        if (d <= 0.05 || d >= best) continue;
+        const x = origin.x + dir.x * d, y = origin.y + dir.y * d, z = origin.z + dir.z * d;
+        const e = 1e-4;
+        if (x >= -W / 2 - e && x <= W / 2 + e && y >= -H / 2 - e && y <= H / 2 + e && z <= e && z >= -D - e) best = d;
+      }
+    }
+    return best < Infinity ? out.copy(origin).addScaledVector(dir, best) : null;
   }
 
   /** Splat "targets" at different depths, one floating in front of the glass,
@@ -186,6 +219,7 @@ export class DemoScene {
       { p: [-0.02 * W, -0.02 * H, 0.12 * D], r: 0.04 * H, c: VIOLET }, // pops out of the glass
     ];
 
+    this.targets = targets;
     const strings: number[] = [];
     for (const t of targets) {
       const mesh = new SplatMesh({ constructSplats: (s) => ballSplats(s, t.r, t.c) });

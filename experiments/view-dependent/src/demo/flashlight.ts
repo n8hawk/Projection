@@ -14,7 +14,8 @@ export interface FlashlightSettings {
   reach: number;
 }
 
-export const DEFAULT_FLASHLIGHT: FlashlightSettings = { enabled: false, angleDeg: 8, softness: 0.03, ambient: 0.05, reach: 0.45 };
+// Mild ambient light keeps the room readable; a narrow beam shows where it points.
+export const DEFAULT_FLASHLIGHT: FlashlightSettings = { enabled: false, angleDeg: 5, softness: 0.02, ambient: 0.3, reach: 0.6 };
 
 const WARM = new THREE.Color(1.55, 1.42, 1.2);
 
@@ -64,10 +65,11 @@ export class Flashlight {
     this.dark.softEdge = s.softness;
 
     this.falloffSdf.radius = s.reach;
-    this.falloffSdf.color.setScalar(Math.max(s.ambient, 0.2));
+    // Gentle depth falloff: never darker than the ambient light, or than half.
+    this.falloffSdf.color.setScalar(Math.max(s.ambient, 0.5));
     this.falloff.softEdge = s.reach;
 
-    this.hotSdf.radius = (s.angleDeg * 0.45) / 45;
+    this.hotSdf.radius = (s.angleDeg * 0.35) / 45;
     this.hotSdf.color.copy(WARM);
     this.hot.softEdge = s.softness * 2;
   }
