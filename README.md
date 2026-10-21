@@ -44,3 +44,7 @@ Multiple projectors and edge blending, sphere and real-world shape detection, au
 - `src/engine`: compositor, shaders, corner pin math, projector math, 3D stage, media loading, gamepad, render loop
 - `src/ui`: React screens and controls
 - `output.html` + `src/output.tsx`: the projector page
+
+## Experiments
+
+- `experiments/view-dependent`: standalone head-coupled (off-axis) splat demo driven by webcam face tracking. Its own `npm install && npm run dev`; see its README.

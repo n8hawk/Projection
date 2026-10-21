@@ -17,8 +17,9 @@ npm run dev
 ```
 
 Open http://localhost:5180 in Chrome or Edge and allow the camera. The face
-model (about 4 MB) and MediaPipe runtime download from public CDNs on first
-run, then come from the browser cache.
+model (`public/models`, about 4 MB) and the MediaPipe runtime (copied from
+`node_modules` by `vite.config.ts`) are served locally, so it works offline.
+`npm run build` produces a static `dist/` folder you can host anywhere.
 
 ## Calibrate (two minutes)
 
