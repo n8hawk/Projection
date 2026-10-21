@@ -16,7 +16,9 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:5180 in Chrome or Edge and allow the camera. The face
+Or double-click `start-demo.cmd` (it installs on first run, starts the server
+and opens the browser; close its window to stop). Open http://localhost:5180 in
+Chrome or Edge and allow the camera. The face
 model (`public/models`, about 4 MB) and the MediaPipe runtime (copied from
 `node_modules` by `vite.config.ts`) are served locally, so it works offline.
 `npm run build` produces a static `dist/` folder you can host anywhere.
