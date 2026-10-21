@@ -24,7 +24,7 @@ model (`public/models`, about 4 MB) and the MediaPipe runtime (copied from
 ## Calibrate (two minutes)
 
 1. **Screen**: pick your panel from the preset list, or measure the lit area
-   and type width and height in cm. Press **F** for fullscreen.
+   and type width and height in cm (the default is a 16" 16:10 panel). Press **F** for fullscreen.
 2. **Webcam offset**: the distance from the centre of the screen to the lens.
    For a top-centre webcam that's Y = half the screen height plus about 0.7 cm.
 3. **Field of view**: sit square to the screen with your eyes a measured

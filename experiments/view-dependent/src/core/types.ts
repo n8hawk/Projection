@@ -41,11 +41,11 @@ export interface Calibration {
 }
 
 export const DEFAULT_CALIBRATION: Calibration = {
-  // 15.6" 16:9 laptop panel
+  // 16" 16:10 laptop panel (e.g. Alienware m16 R2), webcam centred above it
   screenWidthCm: 34.5,
-  screenHeightCm: 19.4,
+  screenHeightCm: 21.5,
   camXCm: 0,
-  camYCm: 10.4,
+  camYCm: 11.5,
   camZCm: 0,
   camHfovDeg: 66,
   ipdMm: 63,
