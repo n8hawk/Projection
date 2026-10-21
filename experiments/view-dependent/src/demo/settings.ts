@@ -1,0 +1,60 @@
+import { DEFAULT_CALIBRATION, type Calibration } from '../core/types';
+import { DEFAULT_FILTER, type FilterSettings } from '../core/eyeFilter';
+import type { SplatPlacement } from './scene';
+
+export type TrackerMode = 'webcam' | 'mouse';
+
+export interface DemoSettings {
+  mode: TrackerMode;
+  calibration: Calibration;
+  filter: FilterSettings;
+  /** Exaggerate head motion (1 = physically correct). */
+  gain: number;
+  /** Treat the browser window as a smaller pane of the screen. */
+  followWindow: boolean;
+  roomDepthCm: number;
+  showRoom: boolean;
+  calibDistanceCm: number;
+  splatUrl: string;
+  placement: SplatPlacement;
+}
+
+export const SAMPLE_SPLAT = 'https://sparkjs.dev/assets/splats/butterfly.spz';
+
+export function defaultSettings(): DemoSettings {
+  return {
+    mode: 'webcam',
+    calibration: { ...DEFAULT_CALIBRATION },
+    filter: { ...DEFAULT_FILTER },
+    gain: 1,
+    followWindow: true,
+    roomDepthCm: 40,
+    showRoom: true,
+    calibDistanceCm: 60,
+    splatUrl: SAMPLE_SPLAT,
+    placement: { scale: 1, zOffset: 0, yawDeg: 0, flip: true },
+  };
+}
+
+const KEY = 'view-dependent-demo/settings/v1';
+
+// Storage can be unavailable (private windows, sandboxed previews); the demo
+// works without it, it just forgets calibration between visits.
+export function loadSettings(): DemoSettings {
+  const d = defaultSettings();
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (!raw) return d;
+    const s = JSON.parse(raw) as Partial<DemoSettings>;
+    return {
+      ...d, ...s,
+      calibration: { ...d.calibration, ...s.calibration },
+      filter: { ...d.filter, ...s.filter },
+      placement: { ...d.placement, ...s.placement },
+    };
+  } catch { return d; }
+}
+
+export function saveSettings(s: DemoSettings): void {
+  try { localStorage.setItem(KEY, JSON.stringify(s)); } catch { /* ignore */ }
+}

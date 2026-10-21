@@ -1,0 +1,23 @@
+{
+  "name": "view-dependent-demo",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@mediapipe/tasks-vision": "^1.1.1",
+    "@sparkjsdev/spark": "^2.4.0",
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "@types/three": "^0.186.0",
+    "typescript": "^7.0.2",
+    "vite": "^5.4.21"
+  }
+}
