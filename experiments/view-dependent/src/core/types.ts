@@ -47,7 +47,7 @@ export const DEFAULT_CALIBRATION: Calibration = {
   camXCm: 0,
   camYCm: 11.5,
   camZCm: 0,
-  camHfovDeg: 66,
+  camHfovDeg: 72.5, // m16 R2 1080p webcam: 80.2° diagonal
   ipdMm: 63,
   mirrorX: false,
   yawCorrect: true,

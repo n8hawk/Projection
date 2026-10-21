@@ -39,8 +39,8 @@ export function defaultSettings(): DemoSettings {
 }
 
 // Bumped when defaults change in a way old saved settings should not mask
-// (v2: calmer smoothing, v3: 16" 16:10 panel).
-const KEY = 'view-dependent-demo/settings/v3';
+// (v2: calmer smoothing, v3: 16" 16:10 panel, v4: m16 R2 webcam FOV).
+const KEY = 'view-dependent-demo/settings/v4';
 
 // Storage can be unavailable (private windows, sandboxed previews); the demo
 // works without it, it just forgets calibration between visits.
