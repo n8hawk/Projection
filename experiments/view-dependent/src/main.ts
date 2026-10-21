@@ -7,7 +7,7 @@ import { WebcamTracker } from './core/webcamTracker';
 import { MouseTracker } from './core/mouseTracker';
 import type { Vec3, ViewerTracker } from './core/types';
 import { DemoScene, type SceneLayout } from './demo/scene';
-import { defaultSettings, loadSettings, saveSettings, type DemoSettings, type TrackerMode } from './demo/settings';
+import { SAMPLE_SPLAT, defaultPlacement, defaultSettings, loadSettings, saveSettings, type DemoSettings, type TrackerMode } from './demo/settings';
 import { PanelBuilder, h } from './demo/ui';
 import './styles.css';
 
@@ -83,6 +83,7 @@ document.body.append(panelEl);
 const panel = new PanelBuilder(panelEl, () => {
   world.setLayout(layout());
   world.showRoom = settings.showRoom;
+  settings.placements[settings.scene] = { ...settings.placement };
   saveSettings(settings);
 });
 
@@ -176,17 +177,25 @@ panel.note(mot, 'Gain 1× is physically correct. Higher values exaggerate the ef
 const scn = panel.section('Scene');
 panel.toggle(scn, 'Show room grid', { get: () => settings.showRoom, set: (v) => { settings.showRoom = v; } });
 panel.slider(scn, 'Room depth', { min: 10, max: 120, step: 1, digits: 0, unit: ' cm', get: () => settings.roomDepthCm, set: (v) => { settings.roomDepthCm = v; } });
+// Scenes: the built-in targets, Spark's sample, every capture in
+// public/splats (listed by the dev server), then a custom URL or file.
+const BASE_SCENES: [string, string][] = [['builtin', 'Built-in targets'], ['sample', 'Butterfly (Spark sample)']];
+let library: string[] = [];
+const sceneSelect = panel.select(scn, 'Scene', BASE_SCENES, {
+  get: () => settings.scene,
+  set: (v) => { void selectScene(v); },
+});
+panel.note(scn, '[ and ] step through scenes. Add your own by dropping files into public/splats and reloading.');
 panel.text(scn, { placeholder: 'https://…/scene.spz', get: () => settings.splatUrl, set: (v) => { settings.splatUrl = v; } });
 const fileInput = h('input');
 fileInput.type = 'file';
 fileInput.accept = '.ply,.spz,.splat,.ksplat,.sog,.zip';
 fileInput.hidden = true;
-fileInput.addEventListener('change', () => { const f = fileInput.files?.[0]; if (f) void loadSplat(f); fileInput.value = ''; });
+fileInput.addEventListener('change', () => { const f = fileInput.files?.[0]; if (f) void selectScene('file', f); fileInput.value = ''; });
 scn.append(fileInput);
 panel.buttons(scn, [
-  ['Load URL', () => void loadSplat(settings.splatUrl)],
+  ['Load URL', () => void selectScene('url')],
   ['Open file…', () => fileInput.click()],
-  ['Built-in', () => { world.showLoaded = false; }],
 ]);
 panel.note(scn, 'Or drop a .ply / .spz / .splat / .ksplat / .sog file anywhere on the page.');
 panel.slider(scn, 'Splat scale', { min: 0.1, max: 4, step: 0.05, digits: 2, unit: '×', get: () => settings.placement.scale, set: (v) => { settings.placement.scale = v; } });
@@ -201,6 +210,7 @@ panel.buttons(panelEl, [
     Object.assign(settings.calibration, d.calibration);
     Object.assign(settings.filter, d.filter);
     Object.assign(settings.placement, d.placement);
+    settings.placements = {};
     settings.gain = d.gain; settings.followWindow = d.followWindow;
     settings.roomDepthCm = d.roomDepthCm; settings.showRoom = d.showRoom;
     settings.calibDistanceCm = d.calibDistanceCm; settings.splatUrl = d.splatUrl;
@@ -210,16 +220,66 @@ panel.buttons(panelEl, [
     saveSettings(settings);
   }],
 ]);
-panel.note(panelEl, 'H hides this panel · M switches webcam/mouse · C calibrates FOV');
+panel.note(panelEl, 'H hides this panel · [ ] change scene · M switches webcam/mouse · C calibrates FOV');
 
-async function loadSplat(src: string | File): Promise<void> {
+/** "garden_v2.splat" -> "Garden v2" */
+function sceneName(file: string): string {
+  const s = file.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').trim();
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function sceneOptions(): [string, string][] {
+  const opts: [string, string][] = [...BASE_SCENES, ...library.map((f) => [`lib:${f}`, sceneName(f)] as [string, string])];
+  opts.push(['url', 'Custom URL']);
+  if (settings.scene === 'file') opts.push(['file', 'Opened file']);
+  return opts;
+}
+
+function fillSceneSelect(): void {
+  sceneSelect.replaceChildren(...sceneOptions().map(([v, text]) => { const op = h('option', undefined, text); op.value = v; return op; }));
+  sceneSelect.value = settings.scene;
+}
+
+async function loadLibrary(): Promise<void> {
+  try {
+    const res = await fetch(import.meta.env.BASE_URL + 'splats/index.json');
+    if (res.ok) library = (await res.json()) as string[];
+  } catch { /* no library on this host */ }
+  fillSceneSelect();
+}
+
+let sceneLoad = 0;
+
+/** Switch scenes, restoring that scene's own placement. */
+async function selectScene(id: string, file?: File): Promise<void> {
+  if (id === 'file' && !file) id = 'builtin';
+  settings.scene = id;
+  Object.assign(settings.placement, defaultPlacement(), settings.placements[id]);
+  fillSceneSelect();
+  panel.refresh();
+  saveSettings(settings);
+
+  const src = file ?? (id === 'sample' ? SAMPLE_SPLAT
+    : id === 'url' ? settings.splatUrl
+    : id.startsWith('lib:') ? `${import.meta.env.BASE_URL}splats/${encodeURIComponent(id.slice(4))}`
+    : null);
+  const ticket = ++sceneLoad;
+  if (!src) { world.showBuiltIn(); status = ''; return; }
   status = `Loading ${typeof src === 'string' ? src : src.name}…`;
   try {
     await world.loadSplat(src);
+    // A newer pick may have landed first; it wins.
+    if (ticket !== sceneLoad) return;
     status = '';
   } catch (err) {
-    status = `Couldn't load splat: ${describe(err)}`;
+    if (ticket === sceneLoad) status = `Couldn't load splat: ${describe(err)}`;
   }
+}
+
+function stepScene(dir: 1 | -1): void {
+  const ids = sceneOptions().map(([v]) => v).filter((v) => v !== 'url' && v !== 'file');
+  const i = ids.indexOf(settings.scene);
+  void selectScene(ids[(i + dir + ids.length) % ids.length]);
 }
 
 function toggleFullscreen(): void {
@@ -234,12 +294,14 @@ window.addEventListener('keydown', (e) => {
   else if (k === 'f') toggleFullscreen();
   else if (k === 'm') { void setMode(settings.mode === 'webcam' ? 'mouse' : 'webcam').then(() => panel.refresh()); }
   else if (k === 'c') calibrateFov();
+  else if (e.key === ']') stepScene(1);
+  else if (e.key === '[') stepScene(-1);
 });
 window.addEventListener('dragover', (e) => e.preventDefault());
 window.addEventListener('drop', (e) => {
   e.preventDefault();
   const f = e.dataTransfer?.files[0];
-  if (f) void loadSplat(f);
+  if (f) void selectScene('file', f);
 });
 
 // ---- Frame loop --------------------------------------------------------
@@ -312,3 +374,8 @@ function drawPreview(): void {
 }
 
 void setMode(settings.mode).then(() => panel.refresh());
+// Reopen the last scene, unless its file has since been removed.
+void loadLibrary().then(() => {
+  const gone = settings.scene.startsWith('lib:') && !library.includes(settings.scene.slice(4));
+  return selectScene(gone ? 'builtin' : settings.scene);
+});

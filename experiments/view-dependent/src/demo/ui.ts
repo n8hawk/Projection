@@ -76,7 +76,7 @@ export class PanelBuilder {
     show();
   }
 
-  select<T extends string>(parent: El, label: string, options: [T, string][], o: { get: () => T; set: (v: T) => void }): void {
+  select<T extends string>(parent: El, label: string, options: [T, string][], o: { get: () => T; set: (v: T) => void }): HTMLSelectElement {
     const row = h('label', 'row');
     const sel = h('select');
     for (const [v, text] of options) { const op = h('option', undefined, text); op.value = v; sel.append(op); }
@@ -86,6 +86,7 @@ export class PanelBuilder {
     parent.append(row);
     this.refreshers.push(show);
     show();
+    return sel;
   }
 
   text(parent: El, o: { placeholder?: string; get: () => string; set: (v: string) => void }): HTMLInputElement {

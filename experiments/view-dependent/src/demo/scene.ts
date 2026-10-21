@@ -36,6 +36,7 @@ export class DemoScene {
   private loadedHolder = new THREE.Group();
   private loaded: SplatMesh | null = null;
   private loadedFit = 1;
+  private loadTicket = 0;
   layout: SceneLayout;
   placement: SplatPlacement = { scale: 1, zOffset: 0, yawDeg: 0, flip: true };
 
@@ -63,6 +64,12 @@ export class DemoScene {
     this.procedural.visible = !this.loadedHolder.visible;
   }
 
+  /** Back to the built-in targets, dropping any capture still loading. */
+  showBuiltIn(): void {
+    this.loadTicket++;
+    this.showLoaded = false;
+  }
+
   tick(time: number): void {
     if (this.nebula) this.nebula.rotation.z = time * 0.05;
     this.applyPlacement();
@@ -70,10 +77,13 @@ export class DemoScene {
 
   /** Load a .ply / .spz / .splat / .ksplat / .sog capture from a URL or File. */
   async loadSplat(src: string | File): Promise<void> {
+    const ticket = ++this.loadTicket;
     const mesh = typeof src === 'string'
       ? new SplatMesh({ url: src })
       : new SplatMesh({ fileBytes: new Uint8Array(await src.arrayBuffer()), fileName: src.name });
     await mesh.initialized;
+    // Switching scenes mid-load: only the latest request is shown.
+    if (ticket !== this.loadTicket) { mesh.dispose(); return; }
     if (this.loaded) { this.loadedHolder.remove(this.loaded); this.loaded.dispose(); }
     const box = mesh.getBoundingBox(true);
     const size = box.getSize(new THREE.Vector3());

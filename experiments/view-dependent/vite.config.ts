@@ -1,5 +1,5 @@
 import { defineConfig, type Plugin } from 'vite';
-import { createReadStream, readFileSync } from 'node:fs';
+import { createReadStream, existsSync, readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 // Serve MediaPipe's WASM runtime from node_modules (dev) and copy it into the
@@ -32,11 +32,36 @@ function mediapipeWasm(): Plugin {
   };
 }
 
+// Lists the captures dropped into public/splats as splats/index.json, read
+// fresh on every request in dev so new files show up on a page reload.
+const SPLAT_DIR = resolve(__dirname, 'public/splats');
+const SPLAT_EXT = /\.(ply|spz|splat|ksplat|sog)$/i;
+
+function listSplats(): string[] {
+  if (!existsSync(SPLAT_DIR)) return [];
+  return readdirSync(SPLAT_DIR).filter((f) => SPLAT_EXT.test(f)).sort();
+}
+
+function splatLibrary(): Plugin {
+  return {
+    name: 'splat-library',
+    configureServer(server) {
+      server.middlewares.use('/splats/index.json', (_req, res) => {
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify(listSplats()));
+      });
+    },
+    generateBundle() {
+      this.emitFile({ type: 'asset', fileName: 'splats/index.json', source: JSON.stringify(listSplats()) });
+    },
+  };
+}
+
 // Standalone experiment, kept apart from the hub app. `base: './'` lets the
 // build run from any folder.
 export default defineConfig({
   base: './',
-  plugins: [mediapipeWasm()],
+  plugins: [mediapipeWasm(), splatLibrary()],
   server: { port: 5180 },
   build: { chunkSizeWarningLimit: 4000 },
 });

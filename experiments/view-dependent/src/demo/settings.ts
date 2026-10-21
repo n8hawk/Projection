@@ -16,10 +16,19 @@ export interface DemoSettings {
   showRoom: boolean;
   calibDistanceCm: number;
   splatUrl: string;
+  /** Scene id: 'builtin', 'sample', 'url', or 'lib:<file>' from public/splats. */
+  scene: string;
+  /** Placement of the current scene; edited live by the panel. */
   placement: SplatPlacement;
+  /** Remembered placement per scene id, since every capture sits differently. */
+  placements: Record<string, SplatPlacement>;
 }
 
 export const SAMPLE_SPLAT = 'https://sparkjs.dev/assets/splats/butterfly.spz';
+
+export function defaultPlacement(): SplatPlacement {
+  return { scale: 1, zOffset: 0, yawDeg: 0, flip: true };
+}
 
 export function defaultSettings(): DemoSettings {
   return {
@@ -34,7 +43,9 @@ export function defaultSettings(): DemoSettings {
     showRoom: true,
     calibDistanceCm: 60,
     splatUrl: SAMPLE_SPLAT,
-    placement: { scale: 1, zOffset: 0, yawDeg: 0, flip: true },
+    scene: 'builtin',
+    placement: defaultPlacement(),
+    placements: {},
   };
 }
 
@@ -55,6 +66,7 @@ export function loadSettings(): DemoSettings {
       calibration: { ...d.calibration, ...s.calibration },
       filter: { ...d.filter, ...s.filter },
       placement: { ...d.placement, ...s.placement },
+      placements: { ...s.placements },
     };
   } catch { return d; }
 }

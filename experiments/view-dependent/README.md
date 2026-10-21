@@ -46,6 +46,7 @@ in the air. If moving left makes the scene swing the wrong way, tick
 | F | Fullscreen |
 | M | Switch between webcam and mouse |
 | C | Calibrate the webcam FOV at *Your distance* |
+| [ / ] | Previous / next scene |
 
 Mouse mode: move to look around, scroll to lean in or out.
 
@@ -54,14 +55,19 @@ Mouse mode: move to look around, scroll to lean in or out.
 forward to hide camera and render latency. *Parallax gain* above 1×
 exaggerates the effect, which can help when filming the screen.
 
-## Your own splats
+## Scenes and your own splats
 
-Drop a `.ply`, `.spz`, `.splat`, `.ksplat` or `.sog` file on the page, use
-**Open file…**, or paste a URL and press **Load URL** (the default URL is
-Spark's sample butterfly). Captures from Polycam, Scaniverse, Luma, Postshot
-or KIRI work. The capture is fitted to the glass; adjust *Splat scale*,
-*Splat depth* (negative is behind the glass) and *Splat turn*. Untick *Flip
-upright* if the capture appears upside down.
+Pick a scene from the **Scene** dropdown, or step through them with `[` and
+`]`. The list holds the built-in targets, Spark's sample butterfly and every
+capture in `public/splats/`: drop a `.ply`, `.spz`, `.splat`, `.ksplat` or
+`.sog` file in that folder and reload the page (see its README for free
+samples). You can also drop a file on the page, use **Open file…**, or paste a
+URL and press **Load URL**. Captures from Polycam, Scaniverse, Luma, Postshot
+or KIRI work.
+
+Each capture is fitted to the glass; adjust *Splat scale*, *Splat depth*
+(negative is behind the glass) and *Splat turn*, and untick *Flip upright* if
+it appears upside down. Placement is remembered per scene.
 
 ## Layout
 
