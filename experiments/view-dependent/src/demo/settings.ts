@@ -23,11 +23,13 @@ export const SAMPLE_SPLAT = 'https://sparkjs.dev/assets/splats/butterfly.spz';
 
 export function defaultSettings(): DemoSettings {
   return {
-    mode: 'webcam',
+    // The hosted build runs in a sandbox without camera access.
+    mode: import.meta.env.VITE_HOSTED ? 'mouse' : 'webcam',
     calibration: { ...DEFAULT_CALIBRATION },
     filter: { ...DEFAULT_FILTER },
     gain: 1,
-    followWindow: true,
+    // Inside an iframe the window metrics don't describe the canvas.
+    followWindow: !import.meta.env.VITE_HOSTED,
     roomDepthCm: 40,
     showRoom: true,
     calibDistanceCm: 60,
