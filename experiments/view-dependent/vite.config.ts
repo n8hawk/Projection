@@ -62,6 +62,7 @@ function splatLibrary(): Plugin {
 export default defineConfig({
   base: './',
   plugins: [mediapipeWasm(), splatLibrary()],
-  server: { port: 5180 },
+  // Fixed port: saved calibration lives in localStorage, which is per origin.
+  server: { port: 5180, strictPort: true },
   build: { chunkSizeWarningLimit: 4000 },
 });
