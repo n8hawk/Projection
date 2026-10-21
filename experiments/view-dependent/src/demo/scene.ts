@@ -145,7 +145,32 @@ export class DemoScene {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
     const mat = new THREE.LineBasicMaterial({ color: CYAN, transparent: true, opacity: 0.28 });
-    this.room.add(new THREE.LineSegments(geo, mat));
+    this.lines = new THREE.LineSegments(geo, mat);
+    // Solid splat walls for the flashlight to light up (lines can't be lit).
+    this.walls = new SplatMesh({ constructSplats: (sp) => wallSplats(sp, W, H, D) });
+    this.room.add(this.lines, this.walls);
+    this.litRoom = this.lit;
+  }
+
+  private lit = false;
+  private lines: THREE.LineSegments | null = null;
+  private walls: SplatMesh | null = null;
+  private strings: THREE.LineSegments | null = null;
+
+  /** Swap the glowing grid lines for solid walls that a light can reveal. */
+  set litRoom(v: boolean) {
+    this.lit = v;
+    if (this.lines) this.lines.visible = !v;
+    // Lines can't be lit, so they'd glow in the dark.
+    if (this.strings) this.strings.visible = !v;
+    // Fade rather than hide: changing which splat meshes are visible makes
+    // Spark rebuild its whole splat list.
+    if (this.walls) this.walls.opacity = v ? 1 : 0;
+  }
+
+  /** Splat meshes an aim ray can hit. */
+  get raycastTargets(): THREE.Object3D[] {
+    return [this.procedural.visible ? this.procedural : this.loadedHolder, ...(this.lit && this.room.visible && this.walls ? [this.walls] : [])];
   }
 
   /** Splat "targets" at different depths, one floating in front of the glass,
@@ -170,7 +195,9 @@ export class DemoScene {
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(strings, 3));
-    this.procedural.add(new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35 })));
+    this.strings = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35 }));
+    this.strings.visible = !this.lit;
+    this.procedural.add(this.strings);
 
     this.nebula = new SplatMesh({ constructSplats: (s) => galaxySplats(s, Math.min(W, H) * 0.42) });
     this.nebula.position.set(0, 0, -D * 0.97);
@@ -198,6 +225,34 @@ function ballSplats(s: PackedSplats, r: number, color: THREE.Color): void {
     tmpS.setScalar(r * 0.09);
     s.pushSplat(dir.multiplyScalar(rr), tmpS, IDENT, 0.9, tmpC);
   }
+}
+
+/** Five walls of flat gaussians with a faint tile grid, open toward the glass. */
+function wallSplats(s: PackedSplats, W: number, H: number, D: number): void {
+  // About 60k splats regardless of room size.
+  const area = W * H + 2 * W * D + 2 * H * D;
+  const step = Math.sqrt(area / 60000);
+  const tile = W / 10;
+  const thin = step * 0.4;
+  const wall = (n: THREE.Vector3Tuple, from: THREE.Vector3Tuple, u: THREE.Vector3Tuple, v: THREE.Vector3Tuple, lu: number, lv: number) => {
+    tmpS.set(n[0] ? thin : step * 0.75, n[1] ? thin : step * 0.75, n[2] ? thin : step * 0.75);
+    for (let a = step / 2; a < lu; a += step) {
+      for (let b = step / 2; b < lv; b += step) {
+        tmpP.set(from[0] + u[0] * a + v[0] * b, from[1] + u[1] * a + v[1] * b, from[2] + u[2] * a + v[2] * b);
+        const onLine = (x: number) => Math.abs(((x + tile * 100) % tile) - tile / 2) > tile / 2 - step * 0.8;
+        const grid = onLine(tmpP.x) || onLine(tmpP.y) || onLine(tmpP.z);
+        const g = 0.32 + Math.random() * 0.06;
+        tmpC.setRGB(g * 0.95, g, g * 1.1);
+        if (grid) tmpC.lerp(CYAN, 0.45);
+        s.pushSplat(tmpP, tmpS, IDENT, 1, tmpC);
+      }
+    }
+  };
+  wall([0, 0, 1], [-W / 2, -H / 2, -D], [1, 0, 0], [0, 1, 0], W, H); // back
+  wall([0, 1, 0], [-W / 2, -H / 2, 0], [1, 0, 0], [0, 0, -1], W, D); // floor
+  wall([0, 1, 0], [-W / 2, H / 2, 0], [1, 0, 0], [0, 0, -1], W, D); // ceiling
+  wall([1, 0, 0], [-W / 2, -H / 2, 0], [0, 1, 0], [0, 0, -1], H, D); // left
+  wall([1, 0, 0], [W / 2, -H / 2, 0], [0, 1, 0], [0, 0, -1], H, D); // right
 }
 
 /** A two-arm spiral of tiny gaussians. */

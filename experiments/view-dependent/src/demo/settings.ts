@@ -1,6 +1,8 @@
 import { DEFAULT_CALIBRATION, type Calibration } from '../core/types';
 import { DEFAULT_FILTER, type FilterSettings } from '../core/eyeFilter';
 import type { SplatPlacement } from './scene';
+import { DEFAULT_AIM, type AimSettings } from '../core/aim';
+import { DEFAULT_FLASHLIGHT, type FlashlightSettings } from './flashlight';
 
 export type TrackerMode = 'webcam' | 'mouse';
 
@@ -22,6 +24,10 @@ export interface DemoSettings {
   placement: SplatPlacement;
   /** Remembered placement per scene id, since every capture sits differently. */
   placements: Record<string, SplatPlacement>;
+  flashlight: FlashlightSettings;
+  aim: AimSettings;
+  /** Show a dot where the aim ray hits. */
+  showAimDot: boolean;
 }
 
 export const SAMPLE_SPLAT = 'https://sparkjs.dev/assets/splats/butterfly.spz';
@@ -46,6 +52,9 @@ export function defaultSettings(): DemoSettings {
     scene: 'builtin',
     placement: defaultPlacement(),
     placements: {},
+    flashlight: { ...DEFAULT_FLASHLIGHT },
+    aim: { ...DEFAULT_AIM },
+    showAimDot: true,
   };
 }
 
@@ -67,6 +76,8 @@ export function loadSettings(): DemoSettings {
       filter: { ...d.filter, ...s.filter },
       placement: { ...d.placement, ...s.placement },
       placements: { ...s.placements },
+      flashlight: { ...d.flashlight, ...s.flashlight },
+      aim: { ...d.aim, ...s.aim },
     };
   } catch { return d; }
 }

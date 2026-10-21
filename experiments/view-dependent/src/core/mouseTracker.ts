@@ -5,6 +5,8 @@ import type { Calibration, EyeSample, ViewerTracker } from './types';
 export class MouseTracker implements ViewerTracker {
   readonly kind = 'mouse';
   distance = 0.6;
+  /** When the pointer is busy aiming, only Shift + move moves the head. */
+  requireShift = false;
   private nx = 0;
   private ny = 0;
   private sample: EyeSample | null = null;
@@ -26,6 +28,7 @@ export class MouseTracker implements ViewerTracker {
   latest(): EyeSample | null { return this.sample && { pos: this.sample.pos, time: performance.now() }; }
 
   private onMove = (e: PointerEvent): void => {
+    if (this.requireShift && !e.shiftKey) return;
     this.nx = (e.clientX / window.innerWidth) * 2 - 1;
     this.ny = 1 - (e.clientY / window.innerHeight) * 2;
     this.update();

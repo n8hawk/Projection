@@ -6,6 +6,10 @@ import { EyeFilter } from './core/eyeFilter';
 import { WebcamTracker } from './core/webcamTracker';
 import { MouseTracker } from './core/mouseTracker';
 import type { Vec3, ViewerTracker } from './core/types';
+import { PadReader, PS } from './core/gamepad';
+import { DualSenseGyro } from './core/dualsenseHid';
+import { AimController } from './core/aim';
+import { Flashlight } from './demo/flashlight';
 import { DemoScene, type SceneLayout } from './demo/scene';
 import { SAMPLE_SPLAT, defaultPlacement, defaultSettings, loadSettings, saveSettings, type DemoSettings, type TrackerMode } from './demo/settings';
 import { PanelBuilder, h } from './demo/ui';
@@ -33,6 +37,31 @@ const world = new DemoScene(layout());
 world.showRoom = settings.showRoom;
 world.placement = settings.placement;
 scene.add(world.root);
+
+// ---- Interaction: aim ray + flashlight ---------------------------------
+const pad = new PadReader();
+const gyro = DualSenseGyro.supported ? new DualSenseGyro() : null;
+void gyro?.reconnect().catch(() => { /* not granted yet */ });
+const aim = new AimController(settings.aim, renderer.domElement);
+const flashlight = new Flashlight(settings.flashlight);
+scene.add(flashlight.group);
+const DARK = new THREE.Color('#010102');
+const NORMAL_BG = new THREE.Color('#0b0c0e');
+const aimDot = new THREE.Mesh(
+  new THREE.RingGeometry(0.0025, 0.0045, 24),
+  new THREE.MeshBasicMaterial({ color: '#90ECFF', transparent: true, opacity: 0.9, depthTest: false, side: THREE.DoubleSide }),
+);
+aimDot.renderOrder = 10;
+aimDot.visible = false;
+scene.add(aimDot);
+const raycaster = new THREE.Raycaster();
+let rayT = 0;
+
+function setFlashlight(on: boolean): void {
+  settings.flashlight.enabled = on;
+  saveSettings(settings);
+  panel.refresh();
+}
 
 // ---- Tracking ----------------------------------------------------------
 const calibration = () => settings.calibration;
@@ -203,6 +232,30 @@ panel.slider(scn, 'Splat depth', { min: -60, max: 20, step: 0.5, unit: ' cm', ge
 panel.slider(scn, 'Splat turn', { min: -180, max: 180, step: 1, digits: 0, unit: '°', get: () => settings.placement.yawDeg, set: (v) => { settings.placement.yawDeg = v; } });
 panel.toggle(scn, 'Flip upright', { get: () => settings.placement.flip, set: (v) => { settings.placement.flip = v; } });
 
+const fl = panel.section('Flashlight');
+panel.toggle(fl, 'Flashlight mode (L)', { get: () => settings.flashlight.enabled, set: (v) => { settings.flashlight.enabled = v; } });
+const padStatus = h('pre', 'readout');
+fl.append(padStatus);
+const flButtons: [string, () => void][] = [['Recenter aim (R)', () => aim.recenter()]];
+if (gyro) flButtons.unshift(['Connect PS5 gyro', () => {
+  gyro.connect().then((ok) => { status = ok ? 'PS5 motion connected. Hold it still for a second.' : ''; })
+    .catch((err) => { status = `Couldn't open the controller: ${describe(err)}`; });
+}]);
+panel.buttons(fl, flButtons);
+panel.note(fl, gyro
+  ? 'Connect PS5 gyro to aim by pointing the controller (Chrome/Edge). Without it, the right stick or the mouse aims.'
+  : 'This browser has no WebHID, so aim with the right stick or the mouse (use Chrome or Edge for the gyro).');
+panel.slider(fl, 'Beam angle', { min: 4, max: 40, step: 0.5, unit: '°', get: () => settings.flashlight.angleDeg, set: (v) => { settings.flashlight.angleDeg = v; } });
+panel.slider(fl, 'Soft edge', { min: 0, max: 10, step: 0.1, unit: ' cm', get: () => settings.flashlight.softness * 100, set: (v) => { settings.flashlight.softness = v / 100; } });
+panel.slider(fl, 'Reach', { min: 10, max: 150, step: 1, digits: 0, unit: ' cm', get: () => settings.flashlight.reach * 100, set: (v) => { settings.flashlight.reach = v / 100; } });
+panel.slider(fl, 'Darkness', { min: 0, max: 1, step: 0.01, digits: 2, get: () => 1 - settings.flashlight.ambient, set: (v) => { settings.flashlight.ambient = 1 - v; } });
+panel.toggle(fl, 'Show aim dot', { get: () => settings.showAimDot, set: (v) => { settings.showAimDot = v; } });
+panel.slider(fl, 'Gyro gain', { min: 0.5, max: 4, step: 0.1, unit: '×', get: () => settings.aim.gyroGain, set: (v) => { settings.aim.gyroGain = v; } });
+panel.slider(fl, 'Stick speed', { min: 20, max: 240, step: 5, digits: 0, unit: '°/s', get: () => settings.aim.stickSpeed, set: (v) => { settings.aim.stickSpeed = v; } });
+panel.toggle(fl, 'Invert left/right aim', { get: () => settings.aim.invertYaw, set: (v) => { settings.aim.invertYaw = v; } });
+panel.toggle(fl, 'Invert up/down aim', { get: () => settings.aim.invertPitch, set: (v) => { settings.aim.invertPitch = v; } });
+panel.note(fl, 'Controller: △ flashlight on/off · L1/R1 narrower/wider · R3 or touchpad recentre · D-pad ◁ ▷ change scene. In mouse head mode, hold Shift to move your head while the mouse aims.');
+
 panel.buttons(panelEl, [
   ['Fullscreen (F)', toggleFullscreen],
   ['Reset all', () => {
@@ -220,7 +273,7 @@ panel.buttons(panelEl, [
     saveSettings(settings);
   }],
 ]);
-panel.note(panelEl, 'H hides this panel · [ ] change scene · M switches webcam/mouse · C calibrates FOV');
+panel.note(panelEl, 'H hides this panel · [ ] change scene · L flashlight · R recentre aim · M switches webcam/mouse · C calibrates FOV');
 
 /** "garden_v2.splat" -> "Garden v2" */
 function sceneName(file: string): string {
@@ -294,6 +347,8 @@ window.addEventListener('keydown', (e) => {
   else if (k === 'f') toggleFullscreen();
   else if (k === 'm') { void setMode(settings.mode === 'webcam' ? 'mouse' : 'webcam').then(() => panel.refresh()); }
   else if (k === 'c') calibrateFov();
+  else if (k === 'l') setFlashlight(!settings.flashlight.enabled);
+  else if (k === 'r') aim.recenter();
   else if (e.key === ']') stepScene(1);
   else if (e.key === '[') stepScene(-1);
 });
@@ -324,6 +379,7 @@ renderer.setAnimationLoop((t) => {
   const eye = { x: est.x * settings.gain, y: est.y * settings.gain, z: est.z };
   applyOffAxis(camera, canvasWindowRect(settings.calibration, renderer.domElement, settings.followWindow), eye, 0.005, 50);
   world.tick(t / 1000);
+  updateInteraction(now, eye);
   renderer.render(scene, camera);
 
   if (now - hudT > 100) {
@@ -340,8 +396,54 @@ renderer.setAnimationLoop((t) => {
     }
     if (status) lines.push('', status);
     readout.textContent = lines.join('\n');
+    padStatus.textContent = [
+      `controller  ${pad.name ?? 'none (press a button)'}`,
+      `ps5 gyro    ${gyro?.connected ? 'connected' : gyro ? 'not connected' : 'needs Chrome/Edge'}`,
+      `aiming with ${aim.ray.source === 'none' ? '—' : aim.ray.source}`,
+    ].join('\n');
   }
 });
+
+let lastFrame = performance.now();
+
+function updateInteraction(now: number, eye: Vec3): void {
+  const dt = Math.min(0.1, (now - lastFrame) / 1000);
+  lastFrame = now;
+  pad.poll();
+  if (pad.edge(PS.triangle)) setFlashlight(!settings.flashlight.enabled);
+  if (pad.edge(PS.l1) || pad.edge(PS.r1)) {
+    const f = settings.flashlight;
+    f.angleDeg = THREE.MathUtils.clamp(f.angleDeg * (pad.edge(PS.r1) ? 1.25 : 0.8), 4, 40);
+    saveSettings(settings);
+    panel.refresh();
+  }
+  if (pad.edge(PS.right)) stepScene(1);
+  if (pad.edge(PS.left)) stepScene(-1);
+
+  const on = settings.flashlight.enabled;
+  mouse.requireShift = on;
+  world.litRoom = on;
+  scene.background = on ? DARK : NORMAL_BG;
+  const rect = canvasWindowRect(settings.calibration, renderer.domElement, settings.followWindow);
+  const ray = aim.update(dt, eye, rect, pad, gyro, settings.roomDepthCm / 200);
+  flashlight.update(ray);
+
+  // Where the ray lands: the aim dot now, spray/shots later. Splat hit
+  // tests run on the CPU, so a few times a second is plenty.
+  const wantDot = on && settings.showAimDot && ray.source !== 'none';
+  if (!wantDot) { aimDot.visible = false; return; }
+  if (now - rayT > 80) {
+    rayT = now;
+    raycaster.set(ray.origin, ray.dir);
+    raycaster.near = 0.05;
+    const hit = raycaster.intersectObjects(world.raycastTargets, true).find((i) => !(i.object instanceof THREE.LineSegments));
+    aimDot.visible = !!hit;
+    if (hit) {
+      aimDot.position.copy(hit.point);
+      aimDot.lookAt(ray.origin);
+    }
+  }
+}
 
 function drawPreview(): void {
   const v = webcam.video;
@@ -379,3 +481,6 @@ void loadLibrary().then(() => {
   const gone = settings.scene.startsWith('lib:') && !library.includes(settings.scene.slice(4));
   return selectScene(gone ? 'builtin' : settings.scene);
 });
+
+// Handles for poking at the scene from the browser console while developing.
+if (import.meta.env.DEV) Object.assign(window, { vd: { world, flashlight, scene, aim, settings } });

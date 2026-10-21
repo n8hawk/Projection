@@ -57,6 +57,24 @@ Mouse mode: move to look around, scroll to lean in or out.
 forward to hide camera and render latency. *Parallax gain* above 1×
 exaggerates the effect, which can help when filming the screen.
 
+## Flashlight (PS5 controller)
+
+Press **L** (or △ on the controller) to darken the scene and light it with a
+torch held a little below your eyes. Aim it with:
+
+- **PS5 gyro**: press *Connect PS5 gyro* in the Flashlight section (Chrome or
+  Edge, USB or Bluetooth) and point the controller. Hold it still for a second
+  after connecting while it learns its drift. Press R3, the touchpad or **R**
+  to recentre. If it turns the wrong way, use the invert toggles.
+- **Right stick** on any controller.
+- **Mouse**: the beam follows the pointer. In mouse head mode, hold Shift to
+  move your head instead.
+
+L1 / R1 narrow or widen the beam, and the D-pad left and right change scene.
+The aim ray lives in `src/core/aim.ts` so later experiments (spray paint,
+shooting, moving objects) can reuse it; the light itself is Spark SDF colour
+edits in `src/demo/flashlight.ts`.
+
 ## Scenes and your own splats
 
 Pick a scene from the **Scene** dropdown, or step through them with `[` and
