@@ -10,7 +10,8 @@ export interface FilterSettings {
   predictMs: number;
 }
 
-export const DEFAULT_FILTER: FilterSettings = { smoothing: 0.6, responsiveness: 1.5, predictMs: 30 };
+// Prediction is off by default: it extrapolates tracking noise as well as motion.
+export const DEFAULT_FILTER: FilterSettings = { smoothing: 0.8, responsiveness: 0.5, predictMs: 0 };
 
 /** Smooths raw eye samples and predicts ahead by `predictMs`. */
 export class EyeFilter {
@@ -33,7 +34,11 @@ export class EyeFilter {
     const s = this.settings;
     // smoothing 0..1 -> min cutoff 8 Hz..0.08 Hz (log scale)
     const minCutoff = 8 * Math.pow(0.01, s.smoothing);
-    for (const f of [this.fx, this.fy, this.fz]) { f.minCutoff = minCutoff; f.beta = s.responsiveness; }
+    for (const f of [this.fx, this.fy]) { f.minCutoff = minCutoff; f.beta = s.responsiveness; }
+    // Distance comes from a few pixels of eye spacing, so it is several times
+    // noisier than x/y: smooth it harder.
+    this.fz.minCutoff = minCutoff * 0.3;
+    this.fz.beta = s.responsiveness * 0.5;
     if (sample && sample.time !== this.lastTime) {
       this.lastTime = sample.time;
       this.pos = {

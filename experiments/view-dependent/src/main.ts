@@ -286,9 +286,9 @@ function drawPreview(): void {
       pctx.fillRect(p.x * W - 0.5, p.y * H - 0.5, 1.5, 1.5);
     }
     pctx.fillStyle = '#62D289';
-    for (const i of [468, 473]) {
-      const p = m.landmarks[i];
-      pctx.beginPath(); pctx.arc(p.x * W, p.y * H, 3, 0, Math.PI * 2); pctx.fill();
+    for (const [i, j] of [[33, 133], [263, 362]]) {
+      const p = m.landmarks[i], q = m.landmarks[j];
+      pctx.beginPath(); pctx.arc(((p.x + q.x) / 2) * W, ((p.y + q.y) / 2) * H, 3, 0, Math.PI * 2); pctx.fill();
     }
   }
   pctx.restore();

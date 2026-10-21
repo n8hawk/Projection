@@ -38,7 +38,8 @@ export function defaultSettings(): DemoSettings {
   };
 }
 
-const KEY = 'view-dependent-demo/settings/v1';
+// v2: new smoothing defaults (v1 values were too jittery).
+const KEY = 'view-dependent-demo/settings/v2';
 
 // Storage can be unavailable (private windows, sandboxed previews); the demo
 // works without it, it just forgets calibration between visits.
