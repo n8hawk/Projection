@@ -18,8 +18,14 @@ export class PanelBuilder {
   /** Re-read every control from its getter (after a reset or calibration). */
   refresh(): void { this.refreshers.forEach((r) => r()); }
 
-  /** A collapsible section; its open/closed state is remembered per title. */
-  section(title: string, open = true): El {
+  /** Run `fn` on every refresh (for controls built by hand). */
+  onRefresh(fn: () => void): void { this.refreshers.push(fn); }
+
+  /**
+   * A collapsible section; its open/closed state is remembered per title.
+   * With `onReset`, a small Reset button sits in the header.
+   */
+  section(title: string, open = true, onReset?: () => void): El {
     const d = h('details', 'section');
     const key = `view-dependent-demo/section/${title}`;
     let saved: string | null = null;
@@ -28,7 +34,21 @@ export class PanelBuilder {
     d.addEventListener('toggle', () => {
       try { localStorage.setItem(key, d.open ? '1' : '0'); } catch { /* ignore */ }
     });
-    d.append(h('summary', undefined, title));
+    const sum = h('summary', undefined, title);
+    if (onReset) {
+      const b = h('button', 'reset', 'Reset');
+      b.type = 'button';
+      b.title = `Reset ${title.toLowerCase()} to defaults`;
+      b.addEventListener('click', (e) => {
+        // Don't let the click fold the section.
+        e.preventDefault(); e.stopPropagation();
+        onReset();
+        this.refresh();
+        this.onChange();
+      });
+      sum.append(b);
+    }
+    d.append(sum);
     this.root.append(d);
     return d;
   }
@@ -112,6 +132,12 @@ export class PanelBuilder {
     });
     parent.append(row);
     return out;
+  }
+
+  subhead(parent: El, text: string): El {
+    const e = h('h3', 'subhead', text);
+    parent.append(e);
+    return e;
   }
 
   note(parent: El, text: string): El {

@@ -67,3 +67,34 @@ input[type='checkbox'] { accent-color: var(--active); }
 .readout {
   margin: 6px 0 0; font-family: var(--mono); font-size: 11px; white-space: pre-wrap; color: var(--text);
 }
+
+/* Top of the panel: what to do and where. */
+.top { padding: 4px 0 8px; }
+.row.big .name { flex: 0 0 52px; color: var(--text); font-weight: 600; }
+.row.big select { font-size: 14px; padding: 7px 8px; border-color: color-mix(in srgb, var(--active) 35%, var(--raised)); }
+.row.big select:disabled { opacity: 0.7; }
+.status { margin: 4px 0; padding: 6px 8px; border-radius: 6px; background: var(--chassis); color: var(--active); font-size: 11.5px; }
+.status[hidden] { display: none; }
+.section summary { display: flex; align-items: center; gap: 6px; list-style: none; }
+.section summary::-webkit-details-marker { display: none; }
+.section summary::before { content: '▸'; font-size: 10px; width: 10px; }
+.section[open] > summary::before { content: '▾'; }
+.section summary .reset {
+  background: none; border: 1px solid var(--raised); color: var(--muted); border-radius: 5px;
+  font: inherit; font-size: 10px; letter-spacing: 0.06em; padding: 1px 7px; cursor: pointer; text-transform: none;
+  margin-left: auto;
+}
+.section summary .reset:hover { color: var(--text); border-color: var(--active); }
+.section[hidden], .panel [hidden] { display: none; }
+.subhead { margin: 10px 0 2px; font-size: 11px; font-weight: 600; color: var(--text); }
+.readout.score { font-size: 12px; color: #ffd36b; }
+
+/* Score card in the gallery. */
+.hud {
+  position: fixed; top: 12px; left: 12px; padding: 8px 14px; border-radius: 8px;
+  background: rgba(60, 8, 14, 0.82); border: 2px solid #e8b64a; color: #ffe6a8;
+  font: 600 13px/1.35 Georgia, 'Times New Roman', serif; white-space: pre; pointer-events: none;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
+}
+.hud::first-line { font-size: 20px; letter-spacing: 0.06em; }
+.hud[hidden] { display: none; }

@@ -40,15 +40,36 @@ edges as you move, and the ball floating in front of the glass seems to hang
 in the air. If moving left makes the scene swing the wrong way, tick
 *Mirror left/right*.
 
+## The menu
+
+The top of the panel holds the two choices that matter most:
+
+- **Demo**: *Window* (just look), *Flashlight* (light the scene with a
+  torch) or *Shooting gallery*.
+- **Scene**: grouped into *3D rooms* (the carnival booth, the grid room with
+  splat targets), *Splat captures* (Spark's sample, everything in
+  `public/splats`, a custom URL) and *Blank* (an empty grid room).
+
+Below that, folding sections hold the options for the current demo, the
+scene, **Tracking**, **Controller**, **Display** (screen and webcam
+calibration, folded away once set) and **Advanced** (the webcam preview and
+tracking numbers). Each section has its own *Reset*, and the panel remembers
+your last demo, scene and settings.
+
 ## Controls
 
 | Key | Action |
 | --- | --- |
+| 1 / 2 / 3 | Window / Flashlight / Shooting gallery |
+| [ / ] | Previous / next scene |
+| Space | Fire (shooting gallery) |
+| 0 | Reset the score |
 | H | Hide or show the panel |
 | F | Fullscreen |
+| L | Flashlight on or off |
+| R | Recentre the aim |
 | M | Switch between webcam and mouse |
 | C | Calibrate the webcam FOV at *Your distance* |
-| [ / ] | Previous / next scene |
 
 Mouse mode: move to look around, scroll to lean in or out.
 
@@ -59,10 +80,11 @@ exaggerates the effect, which can help when filming the screen.
 
 ## Flashlight (PS5 controller)
 
-Press **L** (or △ on the controller) to darken the scene and light it with a
-torch held a little below your eyes. Aim it with:
+Pick the *Flashlight* demo (or press **L**, or △ on the controller) to darken
+the scene and light it with a torch held a little below your eyes. Aim it
+with:
 
-- **PS5 gyro**: press *Connect PS5 gyro* in the Flashlight section (Chrome or
+- **PS5 gyro**: press *Connect PS5 gyro* in the Controller section (Chrome or
   Edge, USB or Bluetooth) and point the controller. Hold it still for a second
   after connecting while it learns its drift. Press R3, the touchpad or **R**
   to recentre. If it turns the wrong way, use the invert toggles.
@@ -70,10 +92,31 @@ torch held a little below your eyes. Aim it with:
 - **Mouse**: the beam follows the pointer. In mouse head mode, hold Shift to
   move your head instead.
 
-L1 / R1 narrow or widen the beam, and the D-pad left and right change scene.
-The aim ray lives in `src/core/aim.ts` so later experiments (spray paint,
-shooting, moving objects) can reuse it; the light itself is Spark SDF colour
-edits in `src/demo/flashlight.ts`.
+L1 / R1 narrow or widen the beam, the D-pad ◀ ▶ changes scene and ▲ ▼
+changes demo. In splat scenes the light is Spark SDF colour edits
+(`src/demo/flashlight.ts`); in the carnival booth it is a real three.js
+spotlight that casts shadows.
+
+## Shooting gallery (carnival booth)
+
+A fully modelled, lit booth sized to your screen, built to show off the
+window effect in layers:
+
+- **At the glass**: the counter, candy-striped posts and a scalloped awning
+  with string bulbs frame the view, and three bullseyes hang on threads
+  *in front of* the glass.
+- **Midground**: tin ducks on two conveyors running opposite ways, barrels and
+  crates for cover, and milk-bottle pyramids on a shelf.
+- **Background**: a painted backdrop half a metre behind the glass.
+
+Aim with the gyro, the right stick or the mouse (the ring shows where the shot
+will land and turns red over a live target), and fire with **R2**, **✕**, a
+click or **Space**. Ducks score 10, bottles 15, floating targets 25. Three
+hidden targets score 50: two sit behind the barrels (lean sideways to see
+round them) and one is tucked behind the awning (duck down). Hits rumble the
+controller, ring a bell and leave a mark that rides along with whatever you
+hit. **Options** or **0** resets the score. The booth's code is in
+`src/demo/gallery/`.
 
 ## Scenes and your own splats
 

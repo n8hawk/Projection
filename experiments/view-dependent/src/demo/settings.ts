@@ -5,8 +5,19 @@ import { DEFAULT_AIM, type AimSettings } from '../core/aim';
 import { DEFAULT_FLASHLIGHT, type FlashlightSettings } from './flashlight';
 
 export type TrackerMode = 'webcam' | 'mouse';
+export type DemoType = 'window' | 'flashlight' | 'gallery';
+
+export interface GallerySettings {
+  sound: boolean;
+  rumble: boolean;
+  crosshair: boolean;
+}
+
+export const DEFAULT_GALLERY: GallerySettings = { sound: true, rumble: true, crosshair: true };
 
 export interface DemoSettings {
+  /** What you do in the scene: look through it, light it, or shoot it. */
+  demo: DemoType;
   mode: TrackerMode;
   calibration: Calibration;
   filter: FilterSettings;
@@ -18,18 +29,21 @@ export interface DemoSettings {
   showRoom: boolean;
   calibDistanceCm: number;
   splatUrl: string;
-  /** Scene id: 'builtin', 'sample', 'url', or 'lib:<file>' from public/splats. */
+  /** Scene id: 'carnival', 'builtin', 'blank', 'sample', 'url', or
+   *  'lib:<file>' from public/splats. */
   scene: string;
   /** Placement of the current scene; edited live by the panel. */
   placement: SplatPlacement;
   /** Remembered placement per scene id, since every capture sits differently. */
   placements: Record<string, SplatPlacement>;
+  /** `enabled` follows the demo type (on in the flashlight demo). */
   flashlight: FlashlightSettings;
   /** Bumped when flashlight defaults change, so only those reset. */
   flashlightV: number;
   aim: AimSettings;
   /** Show a dot where the aim ray hits. */
   showAimDot: boolean;
+  gallery: GallerySettings;
 }
 
 // v2: mild ambient light and a narrower beam.
@@ -43,6 +57,7 @@ export function defaultPlacement(): SplatPlacement {
 
 export function defaultSettings(): DemoSettings {
   return {
+    demo: 'window',
     // The hosted build runs in a sandbox without camera access.
     mode: import.meta.env.VITE_HOSTED ? 'mouse' : 'webcam',
     calibration: { ...DEFAULT_CALIBRATION },
@@ -61,6 +76,7 @@ export function defaultSettings(): DemoSettings {
     flashlightV: FLASHLIGHT_V,
     aim: { ...DEFAULT_AIM },
     showAimDot: true,
+    gallery: { ...DEFAULT_GALLERY },
   };
 }
 
@@ -86,6 +102,9 @@ export function loadSettings(): DemoSettings {
       flashlight: s.flashlightV === FLASHLIGHT_V ? { ...d.flashlight, ...s.flashlight } : d.flashlight,
       flashlightV: FLASHLIGHT_V,
       aim: { ...d.aim, ...s.aim },
+      // Before demo types, the flashlight was a toggle.
+      demo: s.demo ?? (s.flashlight?.enabled ? 'flashlight' : 'window'),
+      gallery: { ...d.gallery, ...s.gallery },
     };
   } catch { return d; }
 }

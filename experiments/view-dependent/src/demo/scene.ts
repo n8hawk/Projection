@@ -70,6 +70,12 @@ export class DemoScene {
     this.showLoaded = false;
   }
 
+  /** Just the room, nothing in it. */
+  showEmpty(): void {
+    this.showBuiltIn();
+    this.procedural.visible = false;
+  }
+
   tick(time: number): void {
     if (this.nebula) this.nebula.rotation.z = time * 0.05;
     this.applyPlacement();

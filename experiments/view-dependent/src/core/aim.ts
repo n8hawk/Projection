@@ -42,6 +42,9 @@ export class AimController {
   yaw = 0;
   pitch = 0;
   readonly ray: AimRay = { origin: new THREE.Vector3(), dir: new THREE.Vector3(0, 0, -1), source: 'none', trigger: 0 };
+  /** Mouse aim starts at the eye, so whatever is under the pointer is what's
+   *  hit at any depth (shooting). Otherwise it starts at the hand (torch). */
+  mouseFromEye = false;
 
   private mouseNdc: { x: number; y: number } | null = null;
   private mouseDown = false;
@@ -100,6 +103,7 @@ export class AimController {
         .addScaledVector(pc.clone().sub(pa), 1 - this.mouseNdc.y);
       const t = (eye.z + depth) / Math.max(1e-3, eye.z);
       const target = new THREE.Vector3(eye.x, eye.y, eye.z).lerp(onGlass, t);
+      if (this.mouseFromEye) hand.set(eye.x, eye.y, eye.z);
       this.ray.dir.subVectors(target, hand).normalize();
       // Keep the angles in step so a controller picks up where the mouse left off.
       this.yaw = THREE.MathUtils.radToDeg(Math.atan2(this.ray.dir.x, -this.ray.dir.z));
