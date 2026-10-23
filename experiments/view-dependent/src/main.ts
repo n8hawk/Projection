@@ -14,6 +14,7 @@ import { DemoScene, type SceneLayout } from './demo/scene';
 import { CarnivalGallery } from './demo/gallery/gallery';
 import { SciFiPlaza, type PlazaAim } from './demo/plaza/plaza';
 import { PlazaHud } from './demo/plaza/hud';
+import { FlashlightBlaster, type BlasterHit } from './demo/blaster';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
@@ -54,6 +55,12 @@ const plaza = new SciFiPlaza();
 plaza.settings = settings.plaza;
 plaza.root.visible = false;
 scene.add(plaza.root);
+const blaster = new FlashlightBlaster(layout());
+blaster.settings = settings.blaster;
+blaster.hitRoom = (o, d, out) => world.hitTest(o, d, out);
+blaster.root.visible = false;
+scene.add(blaster.root);
+const blasterHit: BlasterHit = { point: new THREE.Vector3(), normal: new THREE.Vector3(), prop: null };
 const plazaHud = new PlazaHud();
 document.body.append(plazaHud.canvas);
 const plazaAim: PlazaAim = { point: new THREE.Vector3(), lock: null, lockPoint: new THREE.Vector3(), distance: 0, hit: false };
@@ -95,7 +102,8 @@ const aimHit = new THREE.Vector3();
 
 /** L / △: between the window and flashlight demos. */
 function toggleFlashlight(): void {
-  if (settings.demo !== 'gallery') setDemo(settings.demo === 'flashlight' ? 'window' : 'flashlight');
+  if (settings.demo === 'window') setDemo('flashlight');
+  else if (settings.demo === 'flashlight' || settings.demo === 'blaster') setDemo('window');
 }
 
 // ---- Tracking ----------------------------------------------------------
@@ -176,6 +184,7 @@ const DEMOS: [DemoType, string, string][] = [
   ['flashlight', 'Flashlight', 'The scene goes dark; light it with a torch from your hand (PS5 gyro, right stick or mouse).'],
   ['gallery', 'Shooting gallery', 'A carnival booth. Aim with the gyro, stick or mouse; R2, ✕, click or Space fires. Lean and duck to find hidden targets.'],
   ['plaza', 'Sci-fi plaza', 'A ruined alien-held city. Hold R2 (or click, or Space) for the plasma machine gun; it fires from the controller\'s USB port wherever you point it. Lean round the cover to find more to shoot.'],
+  ['blaster', 'Flashlight blaster', 'The flashlight demo with a blaster in the torch: R2 (or click, or Space) fires bolts along the beam. Shoot the red barrels and they blow up, setting off their neighbours.'],
 ];
 const top = h('div', 'top');
 panelEl.append(top);
@@ -235,6 +244,12 @@ panel.toggle(plzSec, 'Glow (bloom)', { get: () => settings.plaza.bloom, set: (v)
 panel.toggle(plzSec, 'Sound', { get: () => settings.plaza.sound, set: (v) => { settings.plaza.sound = v; } });
 panel.toggle(plzSec, 'Controller rumble', { get: () => settings.plaza.rumble, set: (v) => { settings.plaza.rumble = v; } });
 panel.note(plzSec, 'Aiming works like the flashlight demo: the gun sits just below your eye and a small light shows where it points. Point at the middle of the screen and press the touchpad (or R3) to aim straight ahead again; do that whenever the aim drifts. "Laser pointer" fires from a muzzle at the screen instead. Aim assist pulls shots onto enemies within that many degrees (the dashed ring). The gun overheats after about four seconds of fire.');
+
+const blSec = panel.section('Flashlight blaster', true, () => { Object.assign(settings.blaster, defaultSettings().blaster); });
+panel.buttons(blSec, [['Put the barrels back (0)', () => blaster.reset()]]);
+panel.toggle(blSec, 'Sound', { get: () => settings.blaster.sound, set: (v) => { settings.blaster.sound = v; } });
+panel.toggle(blSec, 'Controller rumble', { get: () => settings.blaster.rumble, set: (v) => { settings.blaster.rumble = v; } });
+panel.note(blSec, 'Hold R2 to fire from the torch along the beam. Two hits blow a barrel; a blast sets off barrels next to it. They come back after 25 seconds, or press Options or 0.');
 
 // ---- Scene options ----
 const scn = panel.section('Scene options', true, () => {
@@ -398,7 +413,7 @@ panel.buttons(adv, [['Reset everything', () => {
   world.showRoom = settings.showRoom;
   saveSettings(settings);
 }]]);
-panel.note(panelEl, 'Keys: 1 2 3 demo · [ ] scene · H panel · F fullscreen · Space fire · 0 reset score · L flashlight · R recentre · M webcam/mouse · C calibrate');
+panel.note(panelEl, 'Keys: 1–5 demo · [ ] scene · H panel · F fullscreen · Space fire · 0 reset score / scene · L flashlight · R recentre · M webcam/mouse · C calibrate');
 panel.refresh();
 
 /** Show only the options that apply to this demo and scene. */
@@ -406,7 +421,8 @@ function updateSections(): void {
   const sc = settings.scene;
   const carnival = sc === 'carnival';
   const splat = sc === 'sample' || sc === 'url' || sc === 'file' || sc.startsWith('lib:');
-  flSec.hidden = settings.demo !== 'flashlight';
+  flSec.hidden = settings.demo !== 'flashlight' && settings.demo !== 'blaster';
+  blSec.hidden = settings.demo !== 'blaster';
   galSec.hidden = settings.demo !== 'gallery';
   plzSec.hidden = settings.demo !== 'plaza';
   roomOpts.hidden = carnival;
@@ -416,7 +432,9 @@ function updateSections(): void {
 
 function setDemo(d: DemoType): void {
   settings.demo = d;
-  settings.flashlight.enabled = d === 'flashlight';
+  settings.flashlight.enabled = d === 'flashlight' || d === 'blaster';
+  // The blaster's barrels stand in the grid room.
+  if (d === 'blaster' && (settings.scene === 'carnival' || settings.scene === 'plaza')) void selectScene('builtin');
   if (d === 'gallery' && settings.scene !== 'carnival') void selectScene('carnival');
   if (d === 'plaza' && settings.scene !== 'plaza') void selectScene('plaza');
   if (d !== 'plaza' && settings.scene === 'plaza' && d !== 'window') void selectScene('builtin');
@@ -535,8 +553,8 @@ window.addEventListener('keydown', (e) => {
   else if (k === 'c') calibrateFov();
   else if (k === 'l') toggleFlashlight();
   else if (k === 'r') aim.recenter();
-  else if (k === '1' || k === '2' || k === '3' || k === '4') setDemo(DEMOS[+k - 1][0]);
-  else if (k === '0') { if (settings.demo === 'plaza') plaza.reset(); else gallery.resetScore(); }
+  else if (k >= '1' && k <= '5') setDemo(DEMOS[+k - 1][0]);
+  else if (k === '0') { if (settings.demo === 'plaza') plaza.reset(); else if (settings.demo === 'blaster') blaster.reset(); else gallery.resetScore(); }
   else if (k === ' ') { if (!e.repeat) fireQueued = true; spaceHeld = true; e.preventDefault(); }
   else if (e.key === ']') stepScene(1);
   else if (e.key === '[') stepScene(-1);
@@ -576,6 +594,10 @@ renderer.setAnimationLoop((t) => {
   lastFrame = now;
   updateInteraction(dt, eye);
   if (gallery.root.visible) gallery.update(dt, t / 1000);
+  if (blaster.root.visible) {
+    blaster.setEye(eye);
+    blaster.update(dt, t / 1000, camera, renderer.domElement.height);
+  }
   if (!plazaOn) plaza.levelFor = 1;
   if (plazaOn) {
     plaza.setEye(eye, est === REST ? 0 : dt); // level the horizon once a face is tracked
@@ -620,6 +642,7 @@ let lastFrame = performance.now();
 let lastTrigger = 0;
 
 plaza.onRumble = (strong, weak, ms) => { if (settings.plaza.rumble) rumble(strong, weak, ms, true); };
+blaster.onRumble = (strong, weak, ms) => { if (settings.blaster.rumble) rumble(strong, weak, ms, true); };
 
 function rumble(strong: number, weak: number, ms: number, force = false): void {
   if (!force && !settings.gallery.rumble) return;
@@ -638,7 +661,7 @@ function updateInteraction(dt: number, eye: Vec3): void {
   if (pad.edge(PS.down)) stepDemo(1);
   if (pad.edge(PS.right)) stepScene(1);
   if (pad.edge(PS.left)) stepScene(-1);
-  if (demo === 'flashlight' && (pad.edge(PS.l1) || pad.edge(PS.r1))) {
+  if ((demo === 'flashlight' || demo === 'blaster') && (pad.edge(PS.l1) || pad.edge(PS.r1))) {
     const f = settings.flashlight;
     f.angleDeg = THREE.MathUtils.clamp(f.angleDeg * (pad.edge(PS.r1) ? 1.25 : 0.8), 2, 40);
     saveSettings(settings);
@@ -646,9 +669,13 @@ function updateInteraction(dt: number, eye: Vec3): void {
   }
   if (demo === 'gallery' && pad.edge(PS.options)) gallery.resetScore();
   if (demo === 'plaza' && pad.edge(PS.options)) plaza.reset();
+  if (demo === 'blaster' && pad.edge(PS.options)) blaster.reset();
   const plazaOn = settings.scene === 'plaza';
+  const blasterOn = demo === 'blaster' && !carnival && !plazaOn;
+  blaster.root.visible = blasterOn;
+  blaster.setLayout(layout());
 
-  const torch = demo === 'flashlight';
+  const torch = demo === 'flashlight' || demo === 'blaster';
   settings.flashlight.enabled = torch && !carnival;
   // The mouse aims in the interactive demos; Shift moves the head instead.
   mouse.requireShift = demo !== 'window';
@@ -660,7 +687,8 @@ function updateInteraction(dt: number, eye: Vec3): void {
   renderer.toneMappingExposure = plazaOn ? 1.0 : 1.1;
   gallery.sfx.muted = !settings.gallery.sound;
   plaza.sfx.muted = !settings.plaza.sound;
-  renderer.domElement.style.cursor = (demo === 'gallery' || demo === 'plaza') && aim.ray.source === 'mouse' ? 'none' : '';
+  blaster.sfx.muted = !settings.blaster.sound;
+  renderer.domElement.style.cursor = (demo === 'gallery' || demo === 'plaza' || demo === 'blaster') && aim.ray.source === 'mouse' ? 'none' : '';
 
   const rect = canvasWindowRect(settings.calibration, renderer.domElement, settings.followWindow);
   const ray = aim.update(dt, eye, rect, pad, gyro, carnival ? 0.2 : settings.roomDepthCm / 200);
@@ -692,6 +720,11 @@ function updateInteraction(dt: number, eye: Vec3): void {
     plaza.setLaser(null, plazaAim, aimHit);
     plaza.setTorch(null, plazaAim);
   }
+  if (blasterOn && ray.source !== 'none') {
+    blaster.setBeam(ray, settings.flashlight);
+    const held = ray.trigger > 0.3 || pad.pressed(PS.cross) || spaceHeld || fireQueued;
+    blaster.trigger(held, ray, dt);
+  } else blaster.setBeam(null, settings.flashlight);
   fireQueued = false;
 
   // Where the ray lands: an analytic or raycast hit every frame keeps the
@@ -702,6 +735,9 @@ function updateInteraction(dt: number, eye: Vec3): void {
   if (showRing && carnival) {
     const g = gallery.raycast(ray.origin, ray.dir);
     if (g) { hit = aimHit.copy(g.point); live = !!g.target?.alive; }
+  } else if (showRing && blasterOn) {
+    const b = blaster.cast(ray.origin, ray.dir, blasterHit);
+    if (b) { hit = aimHit.copy(b.point); live = !!b.prop?.alive; }
   } else if (showRing) {
     hit = world.hitTest(ray.origin, ray.dir, aimHit);
   }
@@ -755,4 +791,4 @@ void loadLibrary().then(() => {
 });
 
 // Handles for poking at the scene from the browser console while developing.
-if (import.meta.env.DEV) Object.assign(window, { vd: { world, flashlight, scene, aim, settings, gallery, plaza, camera, renderer } });
+if (import.meta.env.DEV) Object.assign(window, { vd: { world, flashlight, scene, aim, settings, gallery, plaza, blaster, camera, renderer } });

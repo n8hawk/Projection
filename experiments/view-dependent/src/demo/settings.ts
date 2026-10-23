@@ -4,9 +4,10 @@ import type { SplatPlacement } from './scene';
 import { DEFAULT_AIM, type AimSettings } from '../core/aim';
 import { DEFAULT_FLASHLIGHT, type FlashlightSettings } from './flashlight';
 import { DEFAULT_PLAZA, type PlazaSettings } from './plaza/plaza';
+import { DEFAULT_BLASTER, type BlasterSettings } from './blaster';
 
 export type TrackerMode = 'webcam' | 'mouse';
-export type DemoType = 'window' | 'flashlight' | 'gallery' | 'plaza';
+export type DemoType = 'window' | 'flashlight' | 'gallery' | 'plaza' | 'blaster';
 
 export interface GallerySettings {
   sound: boolean;
@@ -46,6 +47,7 @@ export interface DemoSettings {
   showAimDot: boolean;
   gallery: GallerySettings;
   plaza: PlazaSettings;
+  blaster: BlasterSettings;
 }
 
 // v2: mild ambient light and a narrower beam.
@@ -80,6 +82,7 @@ export function defaultSettings(): DemoSettings {
     showAimDot: true,
     gallery: { ...DEFAULT_GALLERY },
     plaza: { ...DEFAULT_PLAZA },
+    blaster: { ...DEFAULT_BLASTER },
   };
 }
 
@@ -109,6 +112,7 @@ export function loadSettings(): DemoSettings {
       demo: s.demo ?? (s.flashlight?.enabled ? 'flashlight' : 'window'),
       gallery: { ...d.gallery, ...s.gallery },
       plaza: { ...d.plaza, ...s.plaza },
+      blaster: { ...d.blaster, ...s.blaster },
     };
   } catch { return d; }
 }

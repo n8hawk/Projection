@@ -39,6 +39,8 @@ export abstract class Prop {
 
   /** The plaza's scene group; props live in its (scene metre) coordinates. */
   static space: THREE.Object3D | null = null;
+  /** This prop's own scene group, when it isn't in the plaza (the blaster room). */
+  space: THREE.Object3D | null = null;
   /** Where the middle of the prop is, in its own coordinates. */
   protected centerOffset = new THREE.Vector3();
 
@@ -46,7 +48,8 @@ export abstract class Prop {
   center(out: THREE.Vector3): THREE.Vector3 {
     this.object.updateWorldMatrix(true, false);
     this.object.localToWorld(out.copy(this.centerOffset));
-    return Prop.space ? Prop.space.worldToLocal(out) : out;
+    const space = this.space ?? Prop.space;
+    return space ? space.worldToLocal(out) : out;
   }
 
   /** Register meshes as this prop's hit boxes. */

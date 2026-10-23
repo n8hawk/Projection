@@ -45,7 +45,7 @@ in the air. If moving left makes the scene swing the wrong way, tick
 The top of the panel holds the two choices that matter most:
 
 - **Demo**: *Window* (just look), *Flashlight* (light the scene with a
-  torch), *Shooting gallery* or *Sci-fi plaza*.
+  torch), *Shooting gallery*, *Sci-fi plaza* or *Flashlight blaster*.
 - **Scene**: grouped into *3D rooms* (the sci-fi plaza, the carnival booth, the grid room with
   splat targets), *Splat captures* (Spark's sample, everything in
   `public/splats`, a custom URL) and *Blank* (an empty grid room).
@@ -60,10 +60,10 @@ your last demo, scene and settings.
 
 | Key | Action |
 | --- | --- |
-| 1 / 2 / 3 / 4 | Window / Flashlight / Shooting gallery / Sci-fi plaza |
+| 1 / 2 / 3 / 4 / 5 | Window / Flashlight / Shooting gallery / Sci-fi plaza / Flashlight blaster |
 | [ / ] | Previous / next scene |
 | Space | Fire (hold for full auto in the plaza) |
-| 0 | Reset the score (rebuild the plaza) |
+| 0 | Reset the score (rebuild the plaza, put the blaster's barrels back) |
 | H | Hide or show the panel |
 | F | Fullscreen |
 | L | Flashlight on or off |
@@ -159,6 +159,18 @@ The open reticle sits where the shot will land. The dashed ring around it
 is the aim assist (*Aim assist*, 3° by default): shots that pass that close
 to an enemy hit it, and red brackets show what it has locked onto. The code
 is in `src/demo/plaza/`.
+
+## Flashlight blaster
+
+The flashlight demo, exactly as it is, with a blaster in the torch. Hold
+**R2** (or click, or Space) to fire plasma bolts from the torch along its
+beam, about eight a second. Seven of the plaza's red barrels stand on the
+grid room's floor: two hits blow one up, and the blast sets off its
+neighbours, so the cluster at the back left goes up in a chain. Barrels come
+back after 25 seconds, or press **Options** / **0**. The barrels are lit by a
+real spotlight that follows the flashlight's beam, so they light up with the
+splat walls. The code is `src/demo/blaster.ts`; it reuses the plaza's
+barrels, particles and sounds.
 
 ## Scenes and your own splats
 
