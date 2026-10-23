@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { Vec3 } from './types';
 import type { WindowRect } from './offAxis';
 import { PS, type PadReader } from './gamepad';
+import { OneEuro } from './oneEuro';
 import type { DualSenseGyro } from './dualsenseHid';
 
 // A reusable "aim ray" for interaction experiments (flashlight now; spray
@@ -28,9 +29,12 @@ export interface AimSettings {
   stickSpeed: number;
   invertYaw: boolean;
   invertPitch: boolean;
+  /** Controller aim smoothing, 0 (raw) to 1 (heavy). Steadies small hand
+   *  tremor while fast sweeps stay quick. */
+  smoothing: number;
 }
 
-export const DEFAULT_AIM: AimSettings = { gyroGain: 1.5, stickSpeed: 90, invertYaw: false, invertPitch: false };
+export const DEFAULT_AIM: AimSettings = { gyroGain: 1.5, stickSpeed: 90, invertYaw: false, invertPitch: false, smoothing: 0.4 };
 
 /** Where the hand is relative to the eye: a bit below and in front. */
 const HAND_OFFSET = new THREE.Vector3(0, -0.22, -0.1);
@@ -62,6 +66,8 @@ export class AimController {
   private mouseTravel = 0;
   private padAt = -Infinity;
   private tmp = new THREE.Vector3();
+  private yawFilter = new OneEuro();
+  private pitchFilter = new OneEuro();
 
   constructor(public settings: AimSettings, private el: HTMLElement) {
     el.addEventListener('pointermove', (e) => {
@@ -84,7 +90,7 @@ export class AimController {
   }
 
   /** Point straight into the screen again (also fixes gyro drift). */
-  recenter(): void { this.yaw = 0; this.pitch = 0; }
+  recenter(): void { this.yaw = 0; this.pitch = 0; this.yawFilter.reset(); this.pitchFilter.reset(); }
 
   /**
    * @param depth how far behind the glass the mouse ray should meet the
@@ -131,8 +137,21 @@ export class AimController {
       this.yaw = THREE.MathUtils.radToDeg(Math.atan2(this.ray.dir.x, -this.ray.dir.z));
       this.pitch = THREE.MathUtils.radToDeg(Math.asin(this.ray.dir.y));
       source = 'mouse';
+      // Start the controller smoothing fresh from wherever the mouse left it.
+      this.yawFilter.reset();
+      this.pitchFilter.reset();
     } else {
-      const y = THREE.MathUtils.degToRad(this.yaw), p = THREE.MathUtils.degToRad(this.pitch);
+      // One Euro: strong smoothing when nearly still, little when sweeping.
+      let yaw = this.yaw, pitch = this.pitch;
+      if (s.smoothing > 0) {
+        for (const f of [this.yawFilter, this.pitchFilter]) {
+          f.minCutoff = THREE.MathUtils.lerp(10, 0.5, s.smoothing);
+          f.beta = 0.04;
+        }
+        yaw = this.yawFilter.filter(yaw, now);
+        pitch = this.pitchFilter.filter(pitch, now);
+      }
+      const y = THREE.MathUtils.degToRad(yaw), p = THREE.MathUtils.degToRad(pitch);
       this.ray.dir.set(Math.sin(y) * Math.cos(p), Math.sin(p), -Math.cos(y) * Math.cos(p));
       if (source === 'mouse' || source === 'none') source = pad.pad ? 'stick' : 'none';
     }

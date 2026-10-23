@@ -265,6 +265,7 @@ panel.note(ctl, gyro
   ? 'Connect PS5 gyro to aim by pointing the controller (Chrome/Edge). Without it, the right stick or the mouse aims.'
   : 'This browser has no WebHID, so aim with the right stick or the mouse (use Chrome or Edge for the gyro).');
 panel.slider(ctl, 'Gyro gain', { min: 0.5, max: 4, step: 0.1, unit: '×', get: () => settings.aim.gyroGain, set: (v) => { settings.aim.gyroGain = v; } });
+panel.slider(ctl, 'Aim smoothing', { min: 0, max: 1, step: 0.05, digits: 2, get: () => settings.aim.smoothing, set: (v) => { settings.aim.smoothing = v; } });
 panel.slider(ctl, 'Stick speed', { min: 20, max: 240, step: 5, digits: 0, unit: '°/s', get: () => settings.aim.stickSpeed, set: (v) => { settings.aim.stickSpeed = v; } });
 panel.toggle(ctl, 'Invert left/right aim', { get: () => settings.aim.invertYaw, set: (v) => { settings.aim.invertYaw = v; } });
 panel.toggle(ctl, 'Invert up/down aim', { get: () => settings.aim.invertPitch, set: (v) => { settings.aim.invertPitch = v; } });
