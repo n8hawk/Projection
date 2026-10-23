@@ -227,10 +227,11 @@ const plzSec = panel.section('Sci-fi plaza', true, () => { Object.assign(setting
 panel.buttons(plzSec, [['Rebuild the plaza (0)', () => plaza.reset()]]);
 panel.slider(plzSec, 'Aim assist', { min: 0, max: 8, step: 0.5, unit: '°', get: () => settings.plaza.assistDeg, set: (v) => { settings.plaza.assistDeg = v; } });
 panel.toggle(plzSec, 'Show reticle', { get: () => settings.plaza.crosshair, set: (v) => { settings.plaza.crosshair = v; } });
+panel.toggle(plzSec, 'Laser sight', { get: () => settings.plaza.laser, set: (v) => { settings.plaza.laser = v; } });
 panel.toggle(plzSec, 'Glow (bloom)', { get: () => settings.plaza.bloom, set: (v) => { settings.plaza.bloom = v; } });
 panel.toggle(plzSec, 'Sound', { get: () => settings.plaza.sound, set: (v) => { settings.plaza.sound = v; } });
 panel.toggle(plzSec, 'Controller rumble', { get: () => settings.plaza.rumble, set: (v) => { settings.plaza.rumble = v; } });
-panel.note(plzSec, 'Shots leave from the controller\'s USB port and fly straight along where it points, so moving your head never moves your aim. Hold the controller where you set it under Controller, point the port at the middle of the screen and press R3 or the touchpad to line it up. Aim assist pulls shots onto enemies within that many degrees (the dashed ring). The gun overheats after about four seconds of fire.');
+panel.note(plzSec, 'Shots leave from the controller\'s USB port and fly straight along where it points, so moving your head never moves your aim. Hold the controller where you set it under Controller, point the port at the middle of the screen and press the touchpad (or R3) to line it up. Do that again whenever the aim drifts. Aim assist pulls shots onto enemies within that many degrees (the dashed ring). The gun overheats after about four seconds of fire.');
 
 // ---- Scene options ----
 const scn = panel.section('Scene options', true, () => {
@@ -668,9 +669,11 @@ function updateInteraction(dt: number, eye: Vec3): void {
       ray.dir.subVectors(pointerAim.point, ray.origin).normalize();
     }
     plaza.aimAt(ray.origin, ray.dir, plazaAim);
+    plaza.setLaser(ray.origin, plazaAim, new THREE.Vector3(eye.x, eye.y, eye.z));
+    if (pad.edge(PS.touchpad) || pad.edge(PS.r3)) plaza.say('AIM CENTRED');
     const held = ray.trigger > 0.3 || pad.pressed(PS.cross) || spaceHeld || fireQueued;
     plaza.trigger(held, ray.origin, ray.dir, dt, plazaAim);
-  }
+  } else plaza.setLaser(null, plazaAim, aimHit);
   fireQueued = false;
 
   // Where the ray lands: an analytic or raycast hit every frame keeps the

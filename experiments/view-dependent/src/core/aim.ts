@@ -91,6 +91,11 @@ export class AimController {
   private padAt = -Infinity;
   private tmp = new THREE.Vector3();
   private base = new THREE.Quaternion();
+  /** The controller's turn since recentring, integrated in its own frame so
+   *  a tilted or rolled grip still turns the aim the way the hand turns. */
+  private orient = new THREE.Quaternion();
+  private dq = new THREE.Quaternion();
+  private euler = new THREE.Euler(0, 0, 0, 'YXZ');
   private up = new THREE.Vector3();
   private yawFilter = new OneEuro();
   private pitchFilter = new OneEuro();
@@ -130,7 +135,26 @@ export class AimController {
   }
 
   /** Point straight into the screen again (also fixes gyro drift). */
-  recenter(): void { this.yaw = 0; this.pitch = 0; this.yawFilter.reset(); this.pitchFilter.reset(); }
+  recenter(): void {
+    this.yaw = 0; this.pitch = 0;
+    this.orient.identity();
+    this.yawFilter.reset(); this.pitchFilter.reset();
+    // A recentre is a controller action: the controller has the aim now.
+    this.padAt = performance.now();
+    this.mouseTravel = 0;
+  }
+
+  /** Yaw/pitch (degrees) of the controller's pointing line from `orient`. */
+  private anglesFromOrient(): void {
+    const f = this.tmp.set(0, 0, -1).applyQuaternion(this.orient);
+    this.yaw = THREE.MathUtils.radToDeg(Math.atan2(f.x, -f.z));
+    this.pitch = THREE.MathUtils.radToDeg(Math.asin(THREE.MathUtils.clamp(f.y, -1, 1)));
+  }
+
+  /** Rebuild `orient` from yaw/pitch (drops roll). */
+  private orientFromAngles(): void {
+    this.orient.setFromEuler(this.euler.set(THREE.MathUtils.degToRad(this.pitch), -THREE.MathUtils.degToRad(this.yaw), 0, 'YXZ'));
+  }
 
   /**
    * @param depth how far behind the glass the mouse ray should meet the
@@ -148,21 +172,32 @@ export class AimController {
       const d = gyro.takeDelta();
       const gain = port ? s.portGain : s.gyroGain;
       // Turning the controller left is a positive rotation about its up axis.
-      this.yaw -= sy * d.yaw * gain;
-      this.pitch += sp * d.pitch * gain;
+      // Gyro axes match ours: x right (pitch up), y up (turn left), z toward
+      // you (roll). Turn by the small rotation in the controller's own frame.
+      const r = THREE.MathUtils.degToRad(gain);
+      const v = this.tmp.set(sp * d.pitch * r, sy * d.yaw * r, d.roll * r);
+      const ang = v.length();
+      if (ang > 1e-7) {
+        this.orient.multiply(this.dq.setFromAxisAngle(v.divideScalar(ang), ang)).normalize();
+        this.anglesFromOrient();
+      }
       if (Math.abs(d.yaw) + Math.abs(d.pitch) > 0.05) { this.padAt = now; this.mouseTravel = 0; source = 'gyro'; }
     }
     const rx = pad.axis(2), ry = pad.axis(3);
     if (rx || ry) {
       this.yaw += sy * rx * s.stickSpeed * dt;
       this.pitch -= sp * ry * s.stickSpeed * dt;
+      this.orientFromAngles();
       this.padAt = now;
       this.mouseTravel = 0;
       if (!gyro?.connected) source = 'stick';
     }
     if (pad.edge(PS.r3) || pad.edge(PS.touchpad)) this.recenter();
-    this.yaw = THREE.MathUtils.clamp(this.yaw, -MAX_YAW, MAX_YAW);
-    this.pitch = THREE.MathUtils.clamp(this.pitch, -MAX_PITCH, MAX_PITCH);
+    if (Math.abs(this.yaw) > MAX_YAW || Math.abs(this.pitch) > MAX_PITCH) {
+      this.yaw = THREE.MathUtils.clamp(this.yaw, -MAX_YAW, MAX_YAW);
+      this.pitch = THREE.MathUtils.clamp(this.pitch, -MAX_PITCH, MAX_PITCH);
+      this.orientFromAngles();
+    }
 
     const hand = this.ray.origin.set(eye.x, eye.y, eye.z);
     if (port) {
@@ -184,6 +219,7 @@ export class AimController {
       if (port) local.applyQuaternion(this.base.clone().invert());
       this.yaw = THREE.MathUtils.radToDeg(Math.atan2(local.x, -local.z));
       this.pitch = THREE.MathUtils.radToDeg(Math.asin(THREE.MathUtils.clamp(local.y, -1, 1)));
+      this.orientFromAngles();
       source = 'mouse';
       // Start the controller smoothing fresh from wherever the mouse left it.
       this.yawFilter.reset();
@@ -204,7 +240,7 @@ export class AimController {
       if (port) {
         this.ray.dir.applyQuaternion(this.base);
         // From the controller's centre out to the port, which turns with it.
-        this.up.set(0, 1, 0).applyQuaternion(this.base);
+        this.up.set(0, 1, 0).applyQuaternion(this.orient).applyQuaternion(this.base);
         hand.addScaledVector(this.ray.dir, PORT_FORWARD).addScaledVector(this.up, PORT_UP);
       }
       if (source === 'mouse' || source === 'none') source = pad.pad ? 'stick' : 'none';

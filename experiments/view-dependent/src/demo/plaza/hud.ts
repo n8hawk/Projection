@@ -45,12 +45,16 @@ export class PlazaHud {
         const side = new THREE.Vector3().crossVectors(rayDir, new THREE.Vector3(0, 1, 0)).normalize();
         const edge = this.b.copy(aim.point).addScaledVector(side, Math.tan(cone) * aim.distance);
         const q = this.toPx(edge, camera, edge);
-        const ring = q ? Math.min(160 * u, Math.max(18 * u, Math.hypot(q.x - x, q.y - y))) : 40 * u;
+        const ring = q ? Math.min(46 * u, Math.max(20 * u, Math.hypot(q.x - x, q.y - y))) : 30 * u;
         const locked = !!aim.lock;
         g.save();
-        g.setLineDash([3 * u, 6 * u]);
-        g.strokeStyle = locked ? 'rgba(255,120,90,0.45)' : 'rgba(150,220,255,0.35)';
-        g.lineWidth = 1.5 * u;
+        // Dark under-stroke so the ring reads on bright sky and dark rubble.
+        g.setLineDash([5 * u, 5 * u]);
+        g.strokeStyle = 'rgba(0,0,0,0.55)';
+        g.lineWidth = 3.5 * u;
+        g.beginPath(); g.arc(x, y, ring, 0, Math.PI * 2); g.stroke();
+        g.strokeStyle = locked ? 'rgba(255,120,90,0.95)' : 'rgba(170,230,255,0.9)';
+        g.lineWidth = 1.8 * u;
         g.beginPath(); g.arc(x, y, ring, 0, Math.PI * 2); g.stroke();
         g.setLineDash([]);
         const hot = plaza.overheated;
@@ -58,7 +62,7 @@ export class PlazaHud {
           g.strokeStyle = col; g.lineWidth = lw;
           for (let i = 0; i < 4; i++) {
             const a = i * Math.PI / 2 + Math.PI / 4;
-            g.beginPath(); g.arc(x, y, 13 * u, a - 0.45, a + 0.45); g.stroke();
+            g.beginPath(); g.arc(x, y, 10 * u, a - 0.45, a + 0.45); g.stroke();
           }
         }
         g.fillStyle = 'rgba(240,250,255,0.95)';

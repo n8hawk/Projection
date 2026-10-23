@@ -28,9 +28,11 @@ export interface PlazaSettings {
   /** Aim assist cone, degrees: shots this close to an enemy hit it. */
   assistDeg: number;
   bloom: boolean;
+  /** A faint laser from the controller's port to where the shot will land. */
+  laser: boolean;
 }
 
-export const DEFAULT_PLAZA: PlazaSettings = { sound: true, rumble: true, crosshair: true, assistDeg: 3, bloom: true };
+export const DEFAULT_PLAZA: PlazaSettings = { sound: true, rumble: true, crosshair: true, assistDeg: 2.5, bloom: true, laser: true };
 
 /** What the gun is pointing at right now. World space (metres on the desk). */
 export interface PlazaAim {
@@ -100,6 +102,8 @@ export class SciFiPlaza implements PlazaFx {
   private flashes: { light: THREE.PointLight; life: number; peak: number }[] = [];
   private fireLights: THREE.PointLight[] = [];
   private muzzle = new THREE.PointLight('#9a8cff', 0, 0.9, 2);
+  private laser: THREE.Mesh;
+  private laserDot: THREE.Sprite;
   private raycaster = new THREE.Raycaster();
   private cooldown = 0;
   private sinceShot = 99;
@@ -127,6 +131,19 @@ export class SciFiPlaza implements PlazaFx {
     fill.position.set(-40, 60, 200);
     this.world.add(hemi, sun, sun.target, fill);
     this.root.add(this.muzzle);
+
+    // Laser sight: a thin beam in desk metres, tapering away from the port.
+    const beamGeo = new THREE.CylinderGeometry(0.0006, 0.0016, 1, 8, 1, true);
+    beamGeo.translate(0, 0.5, 0).rotateX(-Math.PI / 2); // runs from 0 to -1 along z
+    this.laser = new THREE.Mesh(beamGeo, new THREE.MeshBasicMaterial({
+      color: C(1.6, 0.25, 0.2), transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
+    }));
+    this.laser.renderOrder = 8;
+    this.laser.raycast = () => { /* not solid */ };
+    this.laserDot = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), color: '#ff5a48', blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
+    this.laserDot.renderOrder = 8;
+    this.laser.visible = this.laserDot.visible = false;
+    this.root.add(this.laser, this.laserDot);
 
     this.buildProps();
     for (let i = 0; i < 4; i++) {
@@ -307,7 +324,23 @@ export class SciFiPlaza implements PlazaFx {
     this.glow.emit({ pos: from.clone(), life: 0.06, size: 1.2, size1: 2, color: C(0.8, 0.7, 2) });
   }
 
-  private say(text: string): void { this.callout = { text, age: 0 }; }
+  say(text: string): void { this.callout = { text, age: 0 }; }
+
+  /** Show the laser from the port (world space) to the aim point, or hide it. */
+  setLaser(origin: THREE.Vector3 | null, aim: PlazaAim, eye: THREE.Vector3): void {
+    const on = !!origin && this.settings.laser;
+    this.laser.visible = this.laserDot.visible = on;
+    if (!on) return;
+    const len = origin.distanceTo(aim.point);
+    this.laser.position.copy(origin);
+    this.laser.lookAt(aim.point);
+    // lookAt points +z at the target for non-cameras; the beam runs along -z.
+    this.laser.rotateY(Math.PI);
+    this.laser.scale.set(1, 1, len);
+    // A dot the same size on screen wherever it lands.
+    this.laserDot.position.copy(aim.point);
+    this.laserDot.scale.setScalar(0.006 * aim.point.distanceTo(eye) / 0.6);
+  }
 
   // ---- PlazaFx -----------------------------------------------------------
 
