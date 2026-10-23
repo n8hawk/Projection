@@ -139,17 +139,15 @@ cooled to a third. Barrels set each other off, cover crumbles as you hit it,
 wrecks flip when they blow, and drones, troopers, the turret and walkers go
 down and come back after a while. **Options** or **0** rebuilds everything.
 
-**The controller is a laser pointer.** The gyro only tells the page how
-the controller turns, never where it is, so shots leave from a virtual muzzle
-just behind the bottom middle of the screen and fly straight along where the
-controller points. A faint laser shows the line. Moving your head never
-changes where a shot lands. Point at the middle of the screen and press the
-touchpad (or R3): that becomes straight ahead. *Muzzle height* under
-*Controller* raises the muzzle; *Shots come from → Where I hold it* instead
-uses a measured spot in front of the screen (true to the room, but every
-shot then climbs up into the scene from below). *Pointer gain* 1× matches
-your hand's turn exactly. With the mouse, the shot goes from the muzzle to
-whatever is under the pointer.
+**The controller aims like the flashlight.** By default the plaza uses
+exactly the flashlight demo's setup: the gun sits just below your eye and
+follows your head, and the gyro turns it. A small, dim spotlight (*Aim
+light*) lights the spot where you point, and a faint laser shows the line.
+Point at the middle of the screen and press the touchpad (or R3): that
+becomes straight ahead again. *Aiming → Laser pointer at the screen* instead
+fires from a virtual muzzle just behind the bottom middle of the screen;
+*Muzzle height*, *Shots come from* and *Pointer gain* under *Controller* tune
+that mode. With the mouse, the shot goes to whatever is under the pointer.
 
 The open reticle sits where the shot will land. The dashed ring around it
 is the aim assist (*Aim assist*, 3° by default): shots that pass that close

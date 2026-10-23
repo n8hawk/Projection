@@ -30,9 +30,18 @@ export interface PlazaSettings {
   bloom: boolean;
   /** A faint laser from the controller's port to where the shot will land. */
   laser: boolean;
+  /**
+   * How the controller aims:
+   *  - 'flashlight': exactly like the flashlight demo, from just below your
+   *    eye, following your head. Recentre points straight ahead.
+   *  - 'pointer': a virtual muzzle at the screen (the controller's port).
+   */
+  aimStyle: 'flashlight' | 'pointer';
+  /** A dim, narrow spotlight from the gun lighting where you point. */
+  torch: boolean;
 }
 
-export const DEFAULT_PLAZA: PlazaSettings = { sound: true, rumble: true, crosshair: true, assistDeg: 2.5, bloom: true, laser: true };
+export const DEFAULT_PLAZA: PlazaSettings = { sound: true, rumble: true, crosshair: true, assistDeg: 2.5, bloom: true, laser: true, aimStyle: 'flashlight', torch: true };
 
 /** What the gun is pointing at right now. World space (metres on the desk). */
 export interface PlazaAim {
@@ -104,6 +113,8 @@ export class SciFiPlaza implements PlazaFx {
   private muzzle = new THREE.PointLight('#9a8cff', 0, 0.9, 2);
   private laser: THREE.Mesh;
   private laserDot: THREE.Sprite;
+  /** Small, dim circle of light where the gun points. */
+  private torch = new THREE.SpotLight('#ffe6c8', 0, 0, THREE.MathUtils.degToRad(3.5), 0.45, 0);
   private raycaster = new THREE.Raycaster();
   private cooldown = 0;
   private sinceShot = 99;
@@ -144,6 +155,7 @@ export class SciFiPlaza implements PlazaFx {
     this.laserDot.renderOrder = 8;
     this.laser.visible = this.laserDot.visible = false;
     this.root.add(this.laser, this.laserDot);
+    this.root.add(this.torch, this.torch.target);
 
     this.buildProps();
     for (let i = 0; i < 4; i++) {
@@ -325,6 +337,17 @@ export class SciFiPlaza implements PlazaFx {
   }
 
   say(text: string): void { this.callout = { text, age: 0 }; }
+
+  /** Shine the torch from just above `eye` (desk metres) onto where the shot
+   *  will land, or switch it off. From the eye it lands as a clean round
+   *  spot rather than skimming along the street from the gun. */
+  setTorch(eye: THREE.Vector3 | null, aim: PlazaAim): void {
+    const on = !!eye && this.settings.torch;
+    this.torch.intensity = on ? 3 : 0;
+    if (!on) return;
+    this.torch.position.copy(eye).y += 0.03;
+    this.torch.target.position.copy(aim.point);
+  }
 
   /** Show the laser from the port (world space) to the aim point, or hide it. */
   setLaser(origin: THREE.Vector3 | null, aim: PlazaAim, eye: THREE.Vector3): void {

@@ -227,11 +227,13 @@ const plzSec = panel.section('Sci-fi plaza', true, () => { Object.assign(setting
 panel.buttons(plzSec, [['Rebuild the plaza (0)', () => plaza.reset()]]);
 panel.slider(plzSec, 'Aim assist', { min: 0, max: 8, step: 0.5, unit: '°', get: () => settings.plaza.assistDeg, set: (v) => { settings.plaza.assistDeg = v; } });
 panel.toggle(plzSec, 'Show reticle', { get: () => settings.plaza.crosshair, set: (v) => { settings.plaza.crosshair = v; } });
+panel.select(plzSec, 'Aiming', [['flashlight', 'Like the flashlight'], ['pointer', 'Laser pointer at the screen']], { get: () => settings.plaza.aimStyle, set: (v) => { settings.plaza.aimStyle = v as 'flashlight' | 'pointer'; } });
+panel.toggle(plzSec, 'Aim light', { get: () => settings.plaza.torch, set: (v) => { settings.plaza.torch = v; } });
 panel.toggle(plzSec, 'Laser sight', { get: () => settings.plaza.laser, set: (v) => { settings.plaza.laser = v; } });
 panel.toggle(plzSec, 'Glow (bloom)', { get: () => settings.plaza.bloom, set: (v) => { settings.plaza.bloom = v; } });
 panel.toggle(plzSec, 'Sound', { get: () => settings.plaza.sound, set: (v) => { settings.plaza.sound = v; } });
 panel.toggle(plzSec, 'Controller rumble', { get: () => settings.plaza.rumble, set: (v) => { settings.plaza.rumble = v; } });
-panel.note(plzSec, 'The controller is a laser pointer: shots leave from its virtual muzzle and fly straight along where it points, so moving your head never moves your aim. Point at the middle of the screen and press the touchpad (or R3) to line it up; do that again whenever the aim drifts. Aim assist pulls shots onto enemies within that many degrees (the dashed ring). The gun overheats after about four seconds of fire.');
+panel.note(plzSec, 'Aiming works like the flashlight demo: the gun sits just below your eye and a small light shows where it points. Point at the middle of the screen and press the touchpad (or R3) to aim straight ahead again; do that whenever the aim drifts. "Laser pointer" fires from a muzzle at the screen instead. Aim assist pulls shots onto enemies within that many degrees (the dashed ring). The gun overheats after about four seconds of fire.');
 
 // ---- Scene options ----
 const scn = panel.section('Scene options', true, () => {
@@ -648,7 +650,7 @@ function updateInteraction(dt: number, eye: Vec3): void {
   settings.flashlight.enabled = torch && !carnival;
   // The mouse aims in the interactive demos; Shift moves the head instead.
   mouse.requireShift = demo !== 'window';
-  aim.origin = demo === 'plaza' ? 'port' : demo === 'gallery' ? 'eye' : 'hand';
+  aim.origin = demo === 'plaza' ? (settings.plaza.aimStyle === 'pointer' ? 'port' : 'hand') : demo === 'gallery' ? 'eye' : 'hand';
   world.litRoom = torch && !carnival;
   scene.background = plazaOn ? null : carnival ? NIGHT : torch ? DARK : NORMAL_BG;
   scene.fog = plazaOn ? plaza.fog : null;
@@ -680,10 +682,14 @@ function updateInteraction(dt: number, eye: Vec3): void {
     }
     plaza.aimAt(ray.origin, ray.dir, plazaAim);
     plaza.setLaser(ray.origin, plazaAim, new THREE.Vector3(eye.x, eye.y, eye.z));
+    plaza.setTorch(new THREE.Vector3(eye.x, eye.y, eye.z), plazaAim);
     if (pad.edge(PS.touchpad) || pad.edge(PS.r3)) plaza.say('AIM CENTRED');
     const held = ray.trigger > 0.3 || pad.pressed(PS.cross) || spaceHeld || fireQueued;
     plaza.trigger(held, ray.origin, ray.dir, dt, plazaAim);
-  } else plaza.setLaser(null, plazaAim, aimHit);
+  } else {
+    plaza.setLaser(null, plazaAim, aimHit);
+    plaza.setTorch(null, plazaAim);
+  }
   fireQueued = false;
 
   // Where the ray lands: an analytic or raycast hit every frame keeps the
