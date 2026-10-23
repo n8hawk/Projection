@@ -12,6 +12,13 @@ import { AimController } from './core/aim';
 import { Flashlight } from './demo/flashlight';
 import { DemoScene, type SceneLayout } from './demo/scene';
 import { CarnivalGallery } from './demo/gallery/gallery';
+import { SciFiPlaza, type PlazaAim } from './demo/plaza/plaza';
+import { PlazaHud } from './demo/plaza/hud';
+import { FlashlightBlaster, type BlasterHit } from './demo/blaster';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { SAMPLE_SPLAT, defaultPlacement, defaultSettings, loadSettings, saveSettings, type DemoSettings, type DemoType, type TrackerMode } from './demo/settings';
 import { PanelBuilder, h } from './demo/ui';
 import './styles.css';
@@ -44,6 +51,31 @@ scene.add(world.root);
 const gallery = new CarnivalGallery(renderer);
 gallery.root.visible = false;
 scene.add(gallery.root);
+const plaza = new SciFiPlaza();
+plaza.settings = settings.plaza;
+plaza.root.visible = false;
+scene.add(plaza.root);
+const blaster = new FlashlightBlaster(layout());
+blaster.settings = settings.blaster;
+blaster.hitRoom = (o, d, out) => world.hitTest(o, d, out);
+blaster.root.visible = false;
+scene.add(blaster.root);
+const blasterHit: BlasterHit = { point: new THREE.Vector3(), normal: new THREE.Vector3(), prop: null };
+// Under the mouse cursor, seen from your eye.
+const mouseHit: BlasterHit = { point: new THREE.Vector3(), normal: new THREE.Vector3(), prop: null };
+const pointerDir = new THREE.Vector3();
+/** Where the torch and gun sit when the mouse aims: just under your eye. */
+const MOUSE_GUN = new THREE.Vector3(0, -0.04, -0.02);
+const plazaHud = new PlazaHud();
+document.body.append(plazaHud.canvas);
+const plazaAim: PlazaAim = { point: new THREE.Vector3(), lock: null, lockPoint: new THREE.Vector3(), distance: 0, hit: false };
+
+// Glow for the plasma, fires and explosions in the plaza.
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.6, 0.4, 0.9);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
 
 // ---- Interaction: aim ray + flashlight ---------------------------------
 const pad = new PadReader();
@@ -74,7 +106,8 @@ const aimHit = new THREE.Vector3();
 
 /** L / △: between the window and flashlight demos. */
 function toggleFlashlight(): void {
-  if (settings.demo !== 'gallery') setDemo(settings.demo === 'flashlight' ? 'window' : 'flashlight');
+  if (settings.demo === 'window') setDemo('flashlight');
+  else if (settings.demo === 'flashlight' || settings.demo === 'blaster') setDemo('window');
 }
 
 // ---- Tracking ----------------------------------------------------------
@@ -154,6 +187,8 @@ const DEMOS: [DemoType, string, string][] = [
   ['window', 'Window', 'Move your head and the screen behaves like a pane of glass into the scene.'],
   ['flashlight', 'Flashlight', 'The scene goes dark; light it with a torch from your hand (PS5 gyro, right stick or mouse).'],
   ['gallery', 'Shooting gallery', 'A carnival booth. Aim with the gyro, stick or mouse; R2, ✕, click or Space fires. Lean and duck to find hidden targets.'],
+  ['plaza', 'Sci-fi plaza', 'A ruined alien-held city. Hold R2 (or click, or Space) for the plasma machine gun; it fires from the controller\'s USB port wherever you point it. Lean round the cover to find more to shoot.'],
+  ['blaster', 'Flashlight blaster', 'The flashlight demo with a blaster in the torch: R2 (or click, or Space) fires bolts along the beam. Shoot the red barrels and they blow up, setting off their neighbours.'],
 ];
 const top = h('div', 'top');
 panelEl.append(top);
@@ -173,9 +208,9 @@ panel.buttons(top, [['Fullscreen (F)', toggleFullscreen]]);
 panel.onRefresh(() => {
   demoSelect.value = settings.demo;
   demoNote.textContent = DEMOS.find(([v]) => v === settings.demo)![2];
-  // The gallery is built for the booth, so it keeps that scene.
-  sceneSelect.disabled = settings.demo === 'gallery';
-  sceneSelect.title = sceneSelect.disabled ? 'The shooting gallery has its own booth' : '';
+  // The gallery and the plaza each keep their own scene.
+  sceneSelect.disabled = settings.demo === 'gallery' || settings.demo === 'plaza';
+  sceneSelect.title = sceneSelect.disabled ? 'This demo has its own scene' : '';
   updateSections();
 });
 
@@ -200,6 +235,25 @@ panel.toggle(galSec, 'Sound', { get: () => settings.gallery.sound, set: (v) => {
 panel.toggle(galSec, 'Controller rumble', { get: () => settings.gallery.rumble, set: (v) => { settings.gallery.rumble = v; } });
 panel.toggle(galSec, 'Show crosshair', { get: () => settings.gallery.crosshair, set: (v) => { settings.gallery.crosshair = v; } });
 panel.note(galSec, 'Ducks 10 · bottles 15 · floating targets 25 · hidden targets 50. Two hide behind the barrels (lean sideways) and one behind the awning (duck down). Options or 0 resets the score.');
+
+const plzSec = panel.section('Sci-fi plaza', true, () => { Object.assign(settings.plaza, defaultSettings().plaza); });
+panel.buttons(plzSec, [['Rebuild the plaza (0)', () => plaza.reset()]]);
+panel.slider(plzSec, 'Aim assist', { min: 0, max: 8, step: 0.5, unit: '°', get: () => settings.plaza.assistDeg, set: (v) => { settings.plaza.assistDeg = v; } });
+panel.toggle(plzSec, 'Show reticle', { get: () => settings.plaza.crosshair, set: (v) => { settings.plaza.crosshair = v; } });
+panel.select(plzSec, 'Aiming', [['flashlight', 'Like the flashlight'], ['pointer', 'Laser pointer at the screen']], { get: () => settings.plaza.aimStyle, set: (v) => { settings.plaza.aimStyle = v as 'flashlight' | 'pointer'; } });
+panel.slider(plzSec, 'Look up', { min: -10, max: 15, step: 1, digits: 0, unit: '°', get: () => settings.plaza.tiltDeg, set: (v) => { settings.plaza.tiltDeg = v; } });
+panel.toggle(plzSec, 'Aim light', { get: () => settings.plaza.torch, set: (v) => { settings.plaza.torch = v; } });
+panel.toggle(plzSec, 'Laser sight', { get: () => settings.plaza.laser, set: (v) => { settings.plaza.laser = v; } });
+panel.toggle(plzSec, 'Glow (bloom)', { get: () => settings.plaza.bloom, set: (v) => { settings.plaza.bloom = v; } });
+panel.toggle(plzSec, 'Sound', { get: () => settings.plaza.sound, set: (v) => { settings.plaza.sound = v; } });
+panel.toggle(plzSec, 'Controller rumble', { get: () => settings.plaza.rumble, set: (v) => { settings.plaza.rumble = v; } });
+panel.note(plzSec, 'Aiming works like the flashlight demo: the gun sits just below your eye and a small light shows where it points. Point at the middle of the screen and press the touchpad (or R3) to aim straight ahead again; do that whenever the aim drifts. "Laser pointer" fires from a muzzle at the screen instead. Aim assist pulls shots onto enemies within that many degrees (the dashed ring). The gun overheats after about four seconds of fire.');
+
+const blSec = panel.section('Flashlight blaster', true, () => { Object.assign(settings.blaster, defaultSettings().blaster); });
+panel.buttons(blSec, [['Put the barrels back (0)', () => blaster.reset()]]);
+panel.toggle(blSec, 'Sound', { get: () => settings.blaster.sound, set: (v) => { settings.blaster.sound = v; } });
+panel.toggle(blSec, 'Controller rumble', { get: () => settings.blaster.rumble, set: (v) => { settings.blaster.rumble = v; } });
+panel.note(blSec, 'Hold R2 to fire from the torch along the beam. Two hits blow a barrel; a blast sets off barrels next to it. They come back after 25 seconds, or press Options or 0.');
 
 // ---- Scene options ----
 const scn = panel.section('Scene options', true, () => {
@@ -269,6 +323,22 @@ panel.slider(ctl, 'Aim smoothing', { min: 0, max: 1, step: 0.05, digits: 2, get:
 panel.slider(ctl, 'Stick speed', { min: 20, max: 240, step: 5, digits: 0, unit: '°/s', get: () => settings.aim.stickSpeed, set: (v) => { settings.aim.stickSpeed = v; } });
 panel.toggle(ctl, 'Invert left/right aim', { get: () => settings.aim.invertYaw, set: (v) => { settings.aim.invertYaw = v; } });
 panel.toggle(ctl, 'Invert up/down aim', { get: () => settings.aim.invertPitch, set: (v) => { settings.aim.invertPitch = v; } });
+panel.subhead(ctl, 'Laser pointer (sci-fi plaza)');
+panel.select(ctl, 'Shots come from', [['screen', 'Bottom of the screen'], ['hand', 'Where I hold it']], {
+  get: () => settings.aim.muzzleAt,
+  set: (v) => { settings.aim.muzzleAt = v as 'screen' | 'hand'; aim.recenter(); panel.refresh(); },
+});
+const muzzleOpts = h('div');
+const handOpts = h('div');
+ctl.append(muzzleOpts, handOpts);
+panel.slider(muzzleOpts, 'Muzzle height', { min: 0, max: 50, step: 1, digits: 0, unit: '%', get: () => settings.aim.muzzleHeight * 100, set: (v) => { settings.aim.muzzleHeight = v / 100; } });
+panel.note(muzzleOpts, 'The controller can only report how it turns, not where it is, so shots leave from just behind the bottom middle of the screen and go straight where you point. Point at the middle of the screen and press the touchpad: that becomes straight ahead.');
+panel.number(handOpts, 'Left/right', { step: 1, unit: 'cm', get: () => settings.aim.portXCm, set: (v) => { settings.aim.portXCm = v; } });
+panel.number(handOpts, 'Below centre', { step: 1, unit: 'cm', get: () => -settings.aim.portYCm, set: (v) => { settings.aim.portYCm = -v; } });
+panel.number(handOpts, 'Out from screen', { step: 1, unit: 'cm', get: () => settings.aim.portZCm, set: (v) => { settings.aim.portZCm = v; } });
+panel.note(handOpts, 'Measure from the middle of the screen to the controller\'s USB port as you normally hold it. Shots then start from there, so they climb into the scene from below.');
+panel.onRefresh(() => { muzzleOpts.hidden = settings.aim.muzzleAt !== 'screen'; handOpts.hidden = settings.aim.muzzleAt !== 'hand'; });
+panel.slider(ctl, 'Pointer gain', { min: 0.5, max: 3, step: 0.05, digits: 2, unit: '×', get: () => settings.aim.portGain, set: (v) => { settings.aim.portGain = v; } });
 panel.note(ctl, 'R2 or ✕ fire · △ flashlight on/off · D-pad ▲ ▼ change demo, ◀ ▶ change scene · R3 or touchpad recentre · Options resets the score. In mouse head mode, hold Shift to move your head while the mouse aims.');
 
 // ---- Display: set once per machine, so folded away ----
@@ -347,7 +417,7 @@ panel.buttons(adv, [['Reset everything', () => {
   world.showRoom = settings.showRoom;
   saveSettings(settings);
 }]]);
-panel.note(panelEl, 'Keys: 1 2 3 demo · [ ] scene · H panel · F fullscreen · Space fire · 0 reset score · L flashlight · R recentre · M webcam/mouse · C calibrate');
+panel.note(panelEl, 'Keys: 1–5 demo · [ ] scene · H panel · F fullscreen · Space fire · 0 reset score / scene · L flashlight · R recentre · M webcam/mouse · C calibrate');
 panel.refresh();
 
 /** Show only the options that apply to this demo and scene. */
@@ -355,8 +425,10 @@ function updateSections(): void {
   const sc = settings.scene;
   const carnival = sc === 'carnival';
   const splat = sc === 'sample' || sc === 'url' || sc === 'file' || sc.startsWith('lib:');
-  flSec.hidden = settings.demo !== 'flashlight';
+  flSec.hidden = settings.demo !== 'flashlight' && settings.demo !== 'blaster';
+  blSec.hidden = settings.demo !== 'blaster';
   galSec.hidden = settings.demo !== 'gallery';
+  plzSec.hidden = settings.demo !== 'plaza';
   roomOpts.hidden = carnival;
   splatOpts.hidden = !splat;
   carnivalNote.hidden = !carnival;
@@ -364,8 +436,12 @@ function updateSections(): void {
 
 function setDemo(d: DemoType): void {
   settings.demo = d;
-  settings.flashlight.enabled = d === 'flashlight';
+  settings.flashlight.enabled = d === 'flashlight' || d === 'blaster';
+  // The blaster's barrels stand in the grid room.
+  if (d === 'blaster' && (settings.scene === 'carnival' || settings.scene === 'plaza')) void selectScene('builtin');
   if (d === 'gallery' && settings.scene !== 'carnival') void selectScene('carnival');
+  if (d === 'plaza' && settings.scene !== 'plaza') void selectScene('plaza');
+  if (d !== 'plaza' && settings.scene === 'plaza' && d !== 'window') void selectScene('builtin');
   saveSettings(settings);
   panel.refresh();
 }
@@ -383,7 +459,7 @@ function sceneName(file: string): string {
 
 let library: string[] = [];
 const SCENE_GROUPS = (): [string, [string, string][]][] => [
-  ['3D rooms', [['carnival', 'Carnival booth'], ['builtin', 'Grid room + splat targets']]],
+  ['3D rooms', [['plaza', 'Sci-fi plaza'], ['carnival', 'Carnival booth'], ['builtin', 'Grid room + splat targets']]],
   ['Splat captures', [
     ['sample', 'Butterfly (Spark sample)'],
     ...library.map((f) => [`lib:${f}`, sceneName(f)] as [string, string]),
@@ -420,8 +496,9 @@ let sceneLoad = 0;
 /** Switch scenes, restoring that scene's own placement. */
 async function selectScene(id: string, file?: File): Promise<void> {
   if (id === 'file' && !file) id = 'builtin';
-  // The gallery only works in its booth.
+  // The gallery only works in its booth, the plaza demo in its plaza.
   if (settings.demo === 'gallery') id = 'carnival';
+  if (settings.demo === 'plaza') id = 'plaza';
   settings.scene = id;
   Object.assign(settings.placement, defaultPlacement(), settings.placements[id]);
   fillSceneSelect();
@@ -429,9 +506,12 @@ async function selectScene(id: string, file?: File): Promise<void> {
   saveSettings(settings);
 
   const carnival = id === 'carnival';
+  const isPlaza = id === 'plaza';
   if (carnival) gallery.build(layout().width, layout().height);
   gallery.root.visible = carnival;
-  world.root.visible = !carnival;
+  plaza.root.visible = isPlaza;
+  world.root.visible = !carnival && !isPlaza;
+  if (isPlaza) { status = ''; return; }
   if (carnival) { world.showBuiltIn(); status = ''; return; }
   if (id === 'blank') { world.showEmpty(); status = ''; return; }
 
@@ -453,7 +533,7 @@ async function selectScene(id: string, file?: File): Promise<void> {
 }
 
 function stepScene(dir: 1 | -1): void {
-  if (settings.demo === 'gallery') return;
+  if (settings.demo === 'gallery' || settings.demo === 'plaza') return;
   const ids = sceneOptions().map(([v]) => v).filter((v) => v !== 'url' && v !== 'file');
   const i = ids.indexOf(settings.scene);
   void selectScene(ids[(i + dir + ids.length) % ids.length]);
@@ -465,6 +545,9 @@ function toggleFullscreen(): void {
 }
 
 let fireQueued = false;
+let spaceHeld = false;
+window.addEventListener('keyup', (e) => { if (e.key === ' ') spaceHeld = false; });
+window.addEventListener('blur', () => { spaceHeld = false; });
 window.addEventListener('keydown', (e) => {
   if ((e.target as HTMLElement).closest('input, select, textarea')) return;
   const k = e.key.toLowerCase();
@@ -474,9 +557,9 @@ window.addEventListener('keydown', (e) => {
   else if (k === 'c') calibrateFov();
   else if (k === 'l') toggleFlashlight();
   else if (k === 'r') aim.recenter();
-  else if (k === '1' || k === '2' || k === '3') setDemo(DEMOS[+k - 1][0]);
-  else if (k === '0') gallery.resetScore();
-  else if (k === ' ') { fireQueued = true; e.preventDefault(); }
+  else if (k >= '1' && k <= '5') setDemo(DEMOS[+k - 1][0]);
+  else if (k === '0') { if (settings.demo === 'plaza') plaza.reset(); else if (settings.demo === 'blaster') blaster.reset(); else gallery.resetScore(); }
+  else if (k === ' ') { if (!e.repeat) fireQueued = true; spaceHeld = true; e.preventDefault(); }
   else if (e.key === ']') stepScene(1);
   else if (e.key === '[') stepScene(-1);
 });
@@ -496,6 +579,8 @@ function resize(): void {
   const c = renderer.domElement;
   if (c.width !== Math.round(w * renderer.getPixelRatio()) || c.height !== Math.round(hgt * renderer.getPixelRatio())) {
     renderer.setSize(w, hgt, true);
+    composer.setPixelRatio(renderer.getPixelRatio());
+    composer.setSize(w, hgt);
   }
 }
 
@@ -505,13 +590,26 @@ renderer.setAnimationLoop((t) => {
   const sample = tracker.latest();
   const est = filter.update(sample, now) ?? REST;
   const eye = { x: est.x * settings.gain, y: est.y * settings.gain, z: est.z };
-  applyOffAxis(camera, canvasWindowRect(settings.calibration, renderer.domElement, settings.followWindow), eye, 0.005, 50);
+  const plazaOn = plaza.root.visible;
+  // The plaza reaches kilometres back (hundreds of metres on the desk).
+  applyOffAxis(camera, canvasWindowRect(settings.calibration, renderer.domElement, settings.followWindow), eye, plazaOn ? 0.02 : 0.005, plazaOn ? 420 : 50);
   world.tick(t / 1000);
   const dt = Math.min(0.1, (now - lastFrame) / 1000);
   lastFrame = now;
   updateInteraction(dt, eye);
   if (gallery.root.visible) gallery.update(dt, t / 1000);
-  renderer.render(scene, camera);
+  if (blaster.root.visible) {
+    blaster.setEye(eye);
+    blaster.update(dt, t / 1000, camera, renderer.domElement.height);
+  }
+  if (!plazaOn) plaza.levelFor = 1;
+  if (plazaOn) {
+    plaza.setEye(eye, est === REST ? 0 : dt); // level the horizon once a face is tracked
+    plaza.update(dt, t / 1000, camera, renderer.domElement.height);
+  }
+  if (plazaOn && settings.plaza.bloom) composer.render(dt);
+  else renderer.render(scene, camera);
+  plazaHud.draw(camera, plaza, plazaOn && settings.demo === 'plaza' && aim.ray.source !== 'none' ? plazaAim : null, aim.ray.dir, plazaOn && settings.demo === 'plaza');
 
   if (now - hudT > 100) {
     hudT = now;
@@ -547,8 +645,11 @@ renderer.setAnimationLoop((t) => {
 let lastFrame = performance.now();
 let lastTrigger = 0;
 
-function rumble(strong: number, weak: number, ms: number): void {
-  if (!settings.gallery.rumble) return;
+plaza.onRumble = (strong, weak, ms) => { if (settings.plaza.rumble) rumble(strong, weak, ms, true); };
+blaster.onRumble = (strong, weak, ms) => { if (settings.blaster.rumble) rumble(strong, weak, ms, true); };
+
+function rumble(strong: number, weak: number, ms: number, force = false): void {
+  if (!force && !settings.gallery.rumble) return;
   if (gyro?.connected) { gyro.rumble(strong, weak, ms); return; }
   if (!pad.pad) return;
   const gp = navigator.getGamepads?.()[pad.pad.index] as (Gamepad & { vibrationActuator?: { playEffect?: (t: string, p: object) => Promise<unknown> } }) | null;
@@ -564,28 +665,60 @@ function updateInteraction(dt: number, eye: Vec3): void {
   if (pad.edge(PS.down)) stepDemo(1);
   if (pad.edge(PS.right)) stepScene(1);
   if (pad.edge(PS.left)) stepScene(-1);
-  if (demo === 'flashlight' && (pad.edge(PS.l1) || pad.edge(PS.r1))) {
+  if ((demo === 'flashlight' || demo === 'blaster') && (pad.edge(PS.l1) || pad.edge(PS.r1))) {
     const f = settings.flashlight;
     f.angleDeg = THREE.MathUtils.clamp(f.angleDeg * (pad.edge(PS.r1) ? 1.25 : 0.8), 2, 40);
     saveSettings(settings);
     panel.refresh();
   }
   if (demo === 'gallery' && pad.edge(PS.options)) gallery.resetScore();
+  if (demo === 'plaza' && pad.edge(PS.options)) plaza.reset();
+  if (demo === 'blaster' && pad.edge(PS.options)) blaster.reset();
+  const plazaOn = settings.scene === 'plaza';
+  const blasterOn = demo === 'blaster' && !carnival && !plazaOn;
+  blaster.root.visible = blasterOn;
+  blaster.setLayout(layout());
 
-  const torch = demo === 'flashlight';
+  const torch = demo === 'flashlight' || demo === 'blaster';
   settings.flashlight.enabled = torch && !carnival;
   // The mouse aims in the interactive demos; Shift moves the head instead.
   mouse.requireShift = demo !== 'window';
-  aim.fromEye = demo === 'gallery';
+  aim.origin = demo === 'plaza' ? (settings.plaza.aimStyle === 'pointer' ? 'port' : 'hand') : demo === 'gallery' ? 'eye' : 'hand';
   world.litRoom = torch && !carnival;
-  scene.background = carnival ? NIGHT : torch ? DARK : NORMAL_BG;
-  renderer.toneMapping = carnival ? THREE.ACESFilmicToneMapping : THREE.NoToneMapping;
-  renderer.toneMappingExposure = 1.1;
+  scene.background = plazaOn ? null : carnival ? NIGHT : torch ? DARK : NORMAL_BG;
+  scene.fog = plazaOn ? plaza.fog : null;
+  renderer.toneMapping = carnival || plazaOn ? THREE.ACESFilmicToneMapping : THREE.NoToneMapping;
+  renderer.toneMappingExposure = plazaOn ? 1.0 : 1.1;
   gallery.sfx.muted = !settings.gallery.sound;
-  renderer.domElement.style.cursor = demo === 'gallery' && aim.ray.source === 'mouse' ? 'none' : '';
+  plaza.sfx.muted = !settings.plaza.sound;
+  blaster.sfx.muted = !settings.blaster.sound;
+  renderer.domElement.style.cursor = (demo === 'gallery' || demo === 'plaza' || demo === 'blaster') && aim.ray.source === 'mouse' ? 'none' : '';
 
   const rect = canvasWindowRect(settings.calibration, renderer.domElement, settings.followWindow);
   const ray = aim.update(dt, eye, rect, pad, gyro, carnival ? 0.2 : settings.roomDepthCm / 200);
+  // The mouse picks exactly what's under the cursor, seen from your eye, on
+  // any wall, floor, target or barrel. The torch and gun then sit just under
+  // your eye (a headlamp) rather than down at your hand, which is below the
+  // floor of the scene: from there every spot you can see is in reach, and
+  // the beam never shines on through the floor onto the wall behind.
+  const eyeV = new THREE.Vector3(eye.x, eye.y, eye.z);
+  const pd = aim.pointerRay(eye, rect, pointerDir);
+  if (pd && demo !== 'gallery') ray.origin.copy(eyeV).add(MOUSE_GUN);
+  let picked: BlasterHit | null = null;
+  if (pd && torch && !carnival && !plazaOn) {
+    if (blasterOn) picked = blaster.cast(eyeV, pd, mouseHit);
+    else if (world.hitTest(eyeV, pd, mouseHit.point)) { mouseHit.prop = null; mouseHit.normal.copy(pd).negate(); picked = mouseHit; }
+    // Off the edge of the room (the window can reach past the calibrated
+    // screen): keep following the cursor's line of sight anyway, to a spot
+    // level with the glass, so the ring stays under the cursor.
+    if (!picked) {
+      mouseHit.point.copy(eyeV).addScaledVector(pd, Math.max(0.05, eyeV.z / Math.max(0.05, -pd.z)));
+      mouseHit.normal.copy(pd).negate();
+      mouseHit.prop = null;
+      picked = mouseHit;
+    }
+    ray.dir.subVectors(picked.point, ray.origin).normalize();
+  }
   flashlight.update(ray);
   const f = settings.flashlight;
   gallery.setTorch(torch && carnival && ray.source !== 'none' ? ray : null, f.angleDeg, 0.25 + f.softness * 10, f.ambient);
@@ -597,16 +730,43 @@ function updateInteraction(dt: number, eye: Vec3): void {
     const shot = gallery.shoot(ray.origin, ray.dir);
     if (shot?.scored) rumble(0.9, 0.7, 140); else rumble(0, 0.35, 45);
   }
+  if (demo === 'plaza' && plazaOn && ray.source !== 'none') {
+    // The mouse picks exactly the spot under the cursor, from your eye, with
+    // no aim assist; the gun then fires at it from your hand.
+    plaza.mouseAim = !!pd;
+    if (pd) {
+      plaza.aimAt(eyeV, pd, plazaAim);
+      ray.dir.subVectors(plazaAim.point, ray.origin).normalize();
+    } else plaza.aimAt(ray.origin, ray.dir, plazaAim);
+    plaza.setLaser(ray.origin, plazaAim, new THREE.Vector3(eye.x, eye.y, eye.z));
+    plaza.setTorch(new THREE.Vector3(eye.x, eye.y, eye.z), plazaAim);
+    if (pad.edge(PS.touchpad) || pad.edge(PS.r3)) plaza.say('AIM CENTRED');
+    const held = ray.trigger > 0.3 || pad.pressed(PS.cross) || spaceHeld || fireQueued;
+    plaza.trigger(held, ray.origin, ray.dir, dt, plazaAim, !!pd);
+  } else {
+    plaza.setLaser(null, plazaAim, aimHit);
+    plaza.setTorch(null, plazaAim);
+  }
+  if (blasterOn && ray.source !== 'none') {
+    blaster.setBeam(ray, settings.flashlight);
+    const held = ray.trigger > 0.3 || pad.pressed(PS.cross) || spaceHeld || fireQueued;
+    blaster.trigger(held, ray, dt, picked);
+  } else blaster.setBeam(null, settings.flashlight);
   fireQueued = false;
 
   // Where the ray lands: an analytic or raycast hit every frame keeps the
   // ring glued to the beam.
-  const showRing = ray.source !== 'none' && (demo === 'gallery' ? settings.gallery.crosshair : torch && settings.showAimDot);
+  const showRing = ray.source !== 'none' && !plazaOn && (demo === 'gallery' ? settings.gallery.crosshair : torch && settings.showAimDot);
   let hit: THREE.Vector3 | null = null;
   let live = false;
   if (showRing && carnival) {
     const g = gallery.raycast(ray.origin, ray.dir);
     if (g) { hit = aimHit.copy(g.point); live = !!g.target?.alive; }
+  } else if (showRing && picked) {
+    hit = aimHit.copy(picked.point); live = !!picked.prop?.alive;
+  } else if (showRing && blasterOn) {
+    const b = blaster.cast(ray.origin, ray.dir, blasterHit);
+    if (b) { hit = aimHit.copy(b.point); live = !!b.prop?.alive; }
   } else if (showRing) {
     hit = world.hitTest(ray.origin, ray.dir, aimHit);
   }
@@ -660,4 +820,4 @@ void loadLibrary().then(() => {
 });
 
 // Handles for poking at the scene from the browser console while developing.
-if (import.meta.env.DEV) Object.assign(window, { vd: { world, flashlight, scene, aim, settings, gallery, camera, renderer } });
+if (import.meta.env.DEV) Object.assign(window, { vd: { world, flashlight, scene, aim, settings, gallery, plaza, blaster, camera, renderer } });

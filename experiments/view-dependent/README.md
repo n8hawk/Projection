@@ -45,8 +45,8 @@ in the air. If moving left makes the scene swing the wrong way, tick
 The top of the panel holds the two choices that matter most:
 
 - **Demo**: *Window* (just look), *Flashlight* (light the scene with a
-  torch) or *Shooting gallery*.
-- **Scene**: grouped into *3D rooms* (the carnival booth, the grid room with
+  torch), *Shooting gallery*, *Sci-fi plaza* or *Flashlight blaster*.
+- **Scene**: grouped into *3D rooms* (the sci-fi plaza, the carnival booth, the grid room with
   splat targets), *Splat captures* (Spark's sample, everything in
   `public/splats`, a custom URL) and *Blank* (an empty grid room).
 
@@ -60,10 +60,10 @@ your last demo, scene and settings.
 
 | Key | Action |
 | --- | --- |
-| 1 / 2 / 3 | Window / Flashlight / Shooting gallery |
+| 1 / 2 / 3 / 4 / 5 | Window / Flashlight / Shooting gallery / Sci-fi plaza / Flashlight blaster |
 | [ / ] | Previous / next scene |
-| Space | Fire (shooting gallery) |
-| 0 | Reset the score |
+| Space | Fire (hold for full auto in the plaza) |
+| 0 | Reset the score (rebuild the plaza, put the blaster's barrels back) |
 | H | Hide or show the panel |
 | F | Fullscreen |
 | L | Flashlight on or off |
@@ -117,6 +117,60 @@ round them) and one is tucked behind the awning (duck down). Hits rumble the
 controller, ring a bell and leave a mark that rides along with whatever you
 hit. **Options** or **0** resets the score. The booth's code is in
 `src/demo/gallery/`.
+
+## Sci-fi plaza (plasma machine gun)
+
+A wide shot over a ruined, alien-held city square at dusk, built for
+shooting rather than for a booth. It is modelled at full size and shrunk
+1:20 onto the screen, so the laptop looks out over a few hundred metres:
+
+- **Up close**: low rubble and two broken columns just behind the glass.
+  A squad crouches behind the left column and a turret sits behind the right
+  one; lean (or rise) to peek round them.
+- **The square**: burning wrecks, explosive barrels, a crashed dropship,
+  drones patrolling at every depth, and an elevated highway whose pillars
+  you can shoot out (the spans fall). A sniper's scope glints on the deck.
+- **Far off**: the city skyline, walkers striding through it, an alien spire,
+  a mothership with its beam on, and mountains under a dusk sky.
+
+Hold **R2** (or click, or hold **Space** or **✕**) for full-auto plasma.
+The gun overheats after about four seconds of fire and vents until it has
+cooled to a third. Barrels set each other off, cover crumbles as you hit it,
+wrecks flip when they blow, and drones, troopers, the turret and walkers go
+down and come back after a while. **Options** or **0** rebuilds everything.
+
+**Looking ahead.** The horizon always sits at your eye height, so with your
+eye above the middle of the screen you'd be looking down at the street. For
+the first second after the plaza opens (and after a rebuild with **0**) it
+tilts itself so the horizon sits mid-screen, then holds still so head moves
+keep revealing things. *Look up* adds or removes a few degrees on top.
+
+**The controller aims like the flashlight.** By default the plaza uses
+exactly the flashlight demo's setup: the gun sits just below your eye and
+follows your head, and the gyro turns it. A small, dim spotlight (*Aim
+light*) lights the spot where you point, and a faint laser shows the line.
+Point at the middle of the screen and press the touchpad (or R3): that
+becomes straight ahead again. *Aiming → Laser pointer at the screen* instead
+fires from a virtual muzzle just behind the bottom middle of the screen;
+*Muzzle height*, *Shots come from* and *Pointer gain* under *Controller* tune
+that mode. With the mouse, the shot goes to whatever is under the pointer.
+
+The open reticle sits where the shot will land. The dashed ring around it
+is the aim assist (*Aim assist*, 3° by default): shots that pass that close
+to an enemy hit it, and red brackets show what it has locked onto. The code
+is in `src/demo/plaza/`.
+
+## Flashlight blaster
+
+The flashlight demo, exactly as it is, with a blaster in the torch. Hold
+**R2** (or click, or Space) to fire plasma bolts from the torch along its
+beam, about eight a second. Seven of the plaza's red barrels stand on the
+grid room's floor: two hits blow one up, and the blast sets off its
+neighbours, so the cluster at the back left goes up in a chain. Barrels come
+back after 25 seconds, or press **Options** / **0**. The barrels are lit by a
+real spotlight that follows the flashlight's beam, so they light up with the
+splat walls. The code is `src/demo/blaster.ts`; it reuses the plaza's
+barrels, particles and sounds.
 
 ## Scenes and your own splats
 
