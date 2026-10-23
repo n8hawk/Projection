@@ -547,13 +547,15 @@ let lastFrame = performance.now();
 let lastTrigger = 0;
 
 function rumble(strong: number, weak: number, ms: number): void {
-  if (!settings.gallery.rumble || !pad.pad) return;
+  if (!settings.gallery.rumble) return;
+  if (gyro?.connected) { gyro.rumble(strong, weak, ms); return; }
+  if (!pad.pad) return;
   const gp = navigator.getGamepads?.()[pad.pad.index] as (Gamepad & { vibrationActuator?: { playEffect?: (t: string, p: object) => Promise<unknown> } }) | null;
   void gp?.vibrationActuator?.playEffect?.('dual-rumble', { duration: ms, strongMagnitude: strong, weakMagnitude: weak })?.catch(() => { /* unsupported */ });
 }
 
 function updateInteraction(dt: number, eye: Vec3): void {
-  pad.poll();
+  pad.poll(gyro?.pad ?? null);
   const demo = settings.demo;
   const carnival = settings.scene === 'carnival';
   if (pad.edge(PS.triangle)) toggleFlashlight();

@@ -44,8 +44,12 @@ export class PadReader {
   private activeIndex = -1;
   private prev: boolean[] = [];
 
-  poll(): PadSnapshot | null {
-    const pads = readPads();
+  /**
+   * @param direct a controller read another way (the DualSense over WebHID);
+   *   used instead of the browser's list, which can freeze over Bluetooth.
+   */
+  poll(direct: PadSnapshot | null = null): PadSnapshot | null {
+    const pads = direct ? [direct] : readPads();
     const touched = pads.find(isActive);
     const before = this.activeIndex;
     if (touched) this.activeIndex = touched.index;
