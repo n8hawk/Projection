@@ -61,10 +61,14 @@ blaster.hitRoom = (o, d, out) => world.hitTest(o, d, out);
 blaster.root.visible = false;
 scene.add(blaster.root);
 const blasterHit: BlasterHit = { point: new THREE.Vector3(), normal: new THREE.Vector3(), prop: null };
+// Under the mouse cursor, seen from your eye.
+const mouseHit: BlasterHit = { point: new THREE.Vector3(), normal: new THREE.Vector3(), prop: null };
+const pointerDir = new THREE.Vector3();
+/** Where the torch and gun sit when the mouse aims: just under your eye. */
+const MOUSE_GUN = new THREE.Vector3(0, -0.04, -0.02);
 const plazaHud = new PlazaHud();
 document.body.append(plazaHud.canvas);
 const plazaAim: PlazaAim = { point: new THREE.Vector3(), lock: null, lockPoint: new THREE.Vector3(), distance: 0, hit: false };
-const pointerAim: PlazaAim = { point: new THREE.Vector3(), lock: null, lockPoint: new THREE.Vector3(), distance: 0, hit: false };
 
 // Glow for the plasma, fires and explosions in the plaza.
 const composer = new EffectComposer(renderer);
@@ -692,6 +696,20 @@ function updateInteraction(dt: number, eye: Vec3): void {
 
   const rect = canvasWindowRect(settings.calibration, renderer.domElement, settings.followWindow);
   const ray = aim.update(dt, eye, rect, pad, gyro, carnival ? 0.2 : settings.roomDepthCm / 200);
+  // The mouse picks exactly what's under the cursor, seen from your eye, on
+  // any wall, floor, target or barrel. The torch and gun then sit just under
+  // your eye (a headlamp) rather than down at your hand, which is below the
+  // floor of the scene: from there every spot you can see is in reach, and
+  // the beam never shines on through the floor onto the wall behind.
+  const eyeV = new THREE.Vector3(eye.x, eye.y, eye.z);
+  const pd = aim.pointerRay(eye, rect, pointerDir);
+  if (pd && demo !== 'gallery') ray.origin.copy(eyeV).add(MOUSE_GUN);
+  let picked: BlasterHit | null = null;
+  if (pd && torch && !carnival && !plazaOn) {
+    if (blasterOn) picked = blaster.cast(eyeV, pd, mouseHit);
+    else if (world.hitTest(eyeV, pd, mouseHit.point)) { mouseHit.prop = null; mouseHit.normal.copy(pd).negate(); picked = mouseHit; }
+    if (picked) ray.dir.subVectors(picked.point, ray.origin).normalize();
+  }
   flashlight.update(ray);
   const f = settings.flashlight;
   gallery.setTorch(torch && carnival && ray.source !== 'none' ? ray : null, f.angleDeg, 0.25 + f.softness * 10, f.ambient);
@@ -704,18 +722,18 @@ function updateInteraction(dt: number, eye: Vec3): void {
     if (shot?.scored) rumble(0.9, 0.7, 140); else rumble(0, 0.35, 45);
   }
   if (demo === 'plaza' && plazaOn && ray.source !== 'none') {
-    // The mouse picks a spot from your eye; the gun then fires at it from the port.
-    const pd = aim.pointerRay(eye, rect, new THREE.Vector3());
+    // The mouse picks exactly the spot under the cursor, from your eye, with
+    // no aim assist; the gun then fires at it from your hand.
+    plaza.mouseAim = !!pd;
     if (pd) {
-      plaza.aimAt(new THREE.Vector3(eye.x, eye.y, eye.z), pd, pointerAim);
-      ray.dir.subVectors(pointerAim.point, ray.origin).normalize();
-    }
-    plaza.aimAt(ray.origin, ray.dir, plazaAim);
+      plaza.aimAt(eyeV, pd, plazaAim);
+      ray.dir.subVectors(plazaAim.point, ray.origin).normalize();
+    } else plaza.aimAt(ray.origin, ray.dir, plazaAim);
     plaza.setLaser(ray.origin, plazaAim, new THREE.Vector3(eye.x, eye.y, eye.z));
     plaza.setTorch(new THREE.Vector3(eye.x, eye.y, eye.z), plazaAim);
     if (pad.edge(PS.touchpad) || pad.edge(PS.r3)) plaza.say('AIM CENTRED');
     const held = ray.trigger > 0.3 || pad.pressed(PS.cross) || spaceHeld || fireQueued;
-    plaza.trigger(held, ray.origin, ray.dir, dt, plazaAim);
+    plaza.trigger(held, ray.origin, ray.dir, dt, plazaAim, !!pd);
   } else {
     plaza.setLaser(null, plazaAim, aimHit);
     plaza.setTorch(null, plazaAim);
@@ -723,7 +741,7 @@ function updateInteraction(dt: number, eye: Vec3): void {
   if (blasterOn && ray.source !== 'none') {
     blaster.setBeam(ray, settings.flashlight);
     const held = ray.trigger > 0.3 || pad.pressed(PS.cross) || spaceHeld || fireQueued;
-    blaster.trigger(held, ray, dt);
+    blaster.trigger(held, ray, dt, picked);
   } else blaster.setBeam(null, settings.flashlight);
   fireQueued = false;
 
@@ -735,6 +753,8 @@ function updateInteraction(dt: number, eye: Vec3): void {
   if (showRing && carnival) {
     const g = gallery.raycast(ray.origin, ray.dir);
     if (g) { hit = aimHit.copy(g.point); live = !!g.target?.alive; }
+  } else if (showRing && picked) {
+    hit = aimHit.copy(picked.point); live = !!picked.prop?.alive;
   } else if (showRing && blasterOn) {
     const b = blaster.cast(ray.origin, ray.dir, blasterHit);
     if (b) { hit = aimHit.copy(b.point); live = !!b.prop?.alive; }

@@ -55,6 +55,8 @@ export interface PlazaAim {
   /** Distance from the gun, metres on the desk. */
   distance: number;
   hit: boolean;
+  /** The surface the ray met, if any (aim assist doesn't change it). */
+  surface?: THREE.Intersection | null;
 }
 
 interface Bolt {
@@ -88,6 +90,8 @@ export class SciFiPlaza implements PlazaFx {
   readonly sfx = new PlazaSfx();
   readonly fog = new THREE.FogExp2('#4e2440', 0.012);
   settings: PlazaSettings = { ...DEFAULT_PLAZA };
+  /** The mouse aims exactly where the cursor is: no aim assist. */
+  mouseAim = false;
   /** Main hooks this up to the controller's motors. */
   onRumble: (strong: number, weak: number, ms: number) => void = () => { /* none */ };
 
@@ -268,6 +272,7 @@ export class SciFiPlaza implements PlazaFx {
   aimAt(origin: THREE.Vector3, dir: THREE.Vector3, out: PlazaAim): PlazaAim {
     this.root.updateMatrixWorld();
     const h = this.cast(origin, dir);
+    out.surface = h;
     out.hit = !!h;
     out.point.copy(h ? h.point : this.v.copy(origin).addScaledVector(dir, 60));
     out.distance = h ? h.distance : 60;
@@ -278,7 +283,7 @@ export class SciFiPlaza implements PlazaFx {
       out.lockPoint.copy(h!.point);
       return out;
     }
-    const cone = THREE.MathUtils.degToRad(this.settings.assistDeg);
+    const cone = THREE.MathUtils.degToRad(this.assistDeg);
     if (cone <= 0) return out;
     const cands: [number, Prop, THREE.Vector3][] = [];
     for (const p of this.props) {
@@ -308,11 +313,15 @@ export class SciFiPlaza implements PlazaFx {
     return out;
   }
 
+  /** Aim assist cone in degrees; none for the mouse. */
+  get assistDeg(): number { return this.mouseAim ? 0 : this.settings.assistDeg; }
+
   /**
    * Hold to fire (full auto). Origin and direction are in world space: the
-   * controller's USB port and where it points.
+   * controller's USB port and where it points. With `fixed`, the bolt goes
+   * to `aim` as already worked out (the mouse picks it from your eye).
    */
-  trigger(held: boolean, origin: THREE.Vector3, dir: THREE.Vector3, dt: number, aim: PlazaAim): void {
+  trigger(held: boolean, origin: THREE.Vector3, dir: THREE.Vector3, dt: number, aim: PlazaAim, fixed = false): void {
     this.cooldown -= dt;
     this.sinceShot += dt;
     if (!held || this.overheated || this.cooldown > 0) return;
@@ -322,7 +331,7 @@ export class SciFiPlaza implements PlazaFx {
     this.heat = Math.min(1, this.heat + HEAT_PER_SHOT);
     if (this.heat >= 1) { this.overheated = true; this.sfx.vent(); this.say('OVERHEAT'); }
 
-    const target = this.aimAt(origin, dir, aim);
+    const target = fixed ? aim : this.aimAt(origin, dir, aim);
     const from = this.toScene(this.v.copy(origin)).clone();
     const to = this.toScene(this.w.copy(target.point)).clone();
     const b = this.bolts.find((x) => !x.active) ?? this.bolts[0];
@@ -333,7 +342,7 @@ export class SciFiPlaza implements PlazaFx {
     b.dur = Math.max(0.03, from.distanceTo(to) / BOLT_SPEED);
     b.object = null;
     if (target.hit) {
-      const h = this.cast(origin, this.v.subVectors(target.point, origin).normalize());
+      const h = fixed && !target.lock ? target.surface : this.cast(origin, this.v.subVectors(target.point, origin).normalize());
       if (h) {
         b.object = h.object;
         b.local.copy(h.object.worldToLocal(h.point.clone()));

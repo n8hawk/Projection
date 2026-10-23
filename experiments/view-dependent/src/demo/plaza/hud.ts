@@ -41,21 +41,23 @@ export class PlazaHud {
       if (p) {
         const x = p.x, y = p.y;
         // Assist ring: the cone's width where the shot lands.
-        const cone = THREE.MathUtils.degToRad(plaza.settings.assistDeg);
+        const cone = THREE.MathUtils.degToRad(plaza.assistDeg);
         const side = new THREE.Vector3().crossVectors(rayDir, new THREE.Vector3(0, 1, 0)).normalize();
         const edge = this.b.copy(aim.point).addScaledVector(side, Math.tan(cone) * aim.distance);
         const q = this.toPx(edge, camera, edge);
         const ring = q ? Math.min(46 * u, Math.max(20 * u, Math.hypot(q.x - x, q.y - y))) : 30 * u;
         const locked = !!aim.lock;
         g.save();
-        // Dark under-stroke so the ring reads on bright sky and dark rubble.
-        g.setLineDash([5 * u, 5 * u]);
-        g.strokeStyle = 'rgba(0,0,0,0.55)';
-        g.lineWidth = 3.5 * u;
-        g.beginPath(); g.arc(x, y, ring, 0, Math.PI * 2); g.stroke();
-        g.strokeStyle = locked ? 'rgba(255,120,90,0.95)' : 'rgba(170,230,255,0.9)';
-        g.lineWidth = 1.8 * u;
-        g.beginPath(); g.arc(x, y, ring, 0, Math.PI * 2); g.stroke();
+        if (cone > 0) {
+          // Dark under-stroke so the ring reads on bright sky and dark rubble.
+          g.setLineDash([5 * u, 5 * u]);
+          g.strokeStyle = 'rgba(0,0,0,0.55)';
+          g.lineWidth = 3.5 * u;
+          g.beginPath(); g.arc(x, y, ring, 0, Math.PI * 2); g.stroke();
+          g.strokeStyle = locked ? 'rgba(255,120,90,0.95)' : 'rgba(170,230,255,0.9)';
+          g.lineWidth = 1.8 * u;
+          g.beginPath(); g.arc(x, y, ring, 0, Math.PI * 2); g.stroke();
+        }
         g.setLineDash([]);
         const hot = plaza.overheated;
         for (const [col, lw] of [['rgba(0,0,0,0.5)', 3.5 * u], [hot ? 'rgba(255,140,90,0.95)' : 'rgba(240,250,255,0.95)', 1.6 * u]] as const) {

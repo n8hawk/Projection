@@ -176,12 +176,13 @@ export class FlashlightBlaster implements PlazaFx {
     return best < Infinity ? out : null;
   }
 
-  /** Hold to fire: one bolt on the press, then automatic. */
-  trigger(held: boolean, ray: AimRay, dt: number): void {
+  /** Hold to fire: one bolt on the press, then automatic. `target` sends the
+   *  bolt to a spot already picked (the mouse picks it from your eye). */
+  trigger(held: boolean, ray: AimRay, dt: number, target: BlasterHit | null = null): void {
     this.cooldown -= dt;
     if (!held || this.cooldown > 0) return;
     this.cooldown = 1 / FIRE_RATE;
-    const hit = this.cast(ray.origin, ray.dir, { point: new THREE.Vector3(), normal: new THREE.Vector3(), prop: null });
+    const hit = target ?? this.cast(ray.origin, ray.dir, { point: new THREE.Vector3(), normal: new THREE.Vector3(), prop: null });
     const b = this.bolts.find((x) => !x.active) ?? this.bolts[0];
     b.active = true;
     b.from.copy(ray.origin);
