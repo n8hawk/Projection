@@ -39,9 +39,11 @@ export interface PlazaSettings {
   aimStyle: 'flashlight' | 'pointer';
   /** A dim, narrow spotlight from the gun lighting where you point. */
   torch: boolean;
+  /** Extra upward look, degrees, on top of levelling the horizon with your eye. */
+  tiltDeg: number;
 }
 
-export const DEFAULT_PLAZA: PlazaSettings = { sound: true, rumble: true, crosshair: true, assistDeg: 2.5, bloom: true, laser: true, aimStyle: 'flashlight', torch: true };
+export const DEFAULT_PLAZA: PlazaSettings = { sound: true, rumble: true, crosshair: true, assistDeg: 2.5, bloom: true, laser: true, aimStyle: 'flashlight', torch: true, tiltDeg: 3 };
 
 /** What the gun is pointing at right now. World space (metres on the desk). */
 export interface PlazaAim {
@@ -119,6 +121,9 @@ export class SciFiPlaza implements PlazaFx {
   private cooldown = 0;
   private sinceShot = 99;
   private eyeScene = new THREE.Vector3(0, 4.4, 12);
+  /** Seconds left to keep levelling the horizon with the eye. */
+  levelFor = 1;
+  private levelDeg = 0;
   private emberT = 0;
   private v = new THREE.Vector3();
   private w = new THREE.Vector3();
@@ -235,7 +240,14 @@ export class SciFiPlaza implements PlazaFx {
   private toWorld(v: THREE.Vector3): THREE.Vector3 { return this.world.localToWorld(v); }
 
   /** Where your eyes are, so sounds and effects can scale with distance. */
-  setEye(eye: { x: number; y: number; z: number }): void {
+  setEye(eye: { x: number; y: number; z: number }, dt = 0): void {
+    // For the first second after the plaza opens (or rebuilds) the horizon is
+    // levelled with where your eye is, then held there so head moves still
+    // reveal things instead of swinging the city around.
+    if (this.levelFor > 0) {
+      this.levelFor -= dt;
+      this.levelDeg = THREE.MathUtils.clamp(THREE.MathUtils.radToDeg(Math.atan2(eye.y, Math.max(0.2, eye.z))), 0, 20);
+    }
     this.eyeScene.set(eye.x, eye.y, eye.z);
     this.toScene(this.eyeScene);
   }
@@ -464,6 +476,10 @@ export class SciFiPlaza implements PlazaFx {
   // ---- Frame ---------------------------------------------------------------
 
   update(dt: number, t: number, camera: THREE.Camera, viewportPx: number): void {
+    // The horizon sits at eye height, so with your eye above the middle of the
+    // screen you'd look down at the street. Tilting the plaza (pivoting on the
+    // street under the screen) brings the horizon to the middle: looking ahead.
+    this.world.rotation.x = -THREE.MathUtils.degToRad(this.levelDeg + this.settings.tiltDeg);
     this.root.updateMatrixWorld();
     // Pixels per scene metre at one metre from the eye.
     const P = (camera as THREE.PerspectiveCamera).projectionMatrix.elements[5];
@@ -552,6 +568,7 @@ export class SciFiPlaza implements PlazaFx {
 
   /** Put everything back: cover, barrels, enemies, the highway. */
   reset(): void {
+    this.levelFor = 1;
     for (const p of this.props) p.reset();
     this.glow.clear(); this.smoke.clear(); this.debris.clear();
     for (const b of this.bolts) b.active = false;

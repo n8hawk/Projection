@@ -139,6 +139,12 @@ cooled to a third. Barrels set each other off, cover crumbles as you hit it,
 wrecks flip when they blow, and drones, troopers, the turret and walkers go
 down and come back after a while. **Options** or **0** rebuilds everything.
 
+**Looking ahead.** The horizon always sits at your eye height, so with your
+eye above the middle of the screen you'd be looking down at the street. For
+the first second after the plaza opens (and after a rebuild with **0**) it
+tilts itself so the horizon sits mid-screen, then holds still so head moves
+keep revealing things. *Look up* adds or removes a few degrees on top.
+
 **The controller aims like the flashlight.** By default the plaza uses
 exactly the flashlight demo's setup: the gun sits just below your eye and
 follows your head, and the gyro turns it. A small, dim spotlight (*Aim

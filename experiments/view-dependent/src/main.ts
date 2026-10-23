@@ -228,6 +228,7 @@ panel.buttons(plzSec, [['Rebuild the plaza (0)', () => plaza.reset()]]);
 panel.slider(plzSec, 'Aim assist', { min: 0, max: 8, step: 0.5, unit: '°', get: () => settings.plaza.assistDeg, set: (v) => { settings.plaza.assistDeg = v; } });
 panel.toggle(plzSec, 'Show reticle', { get: () => settings.plaza.crosshair, set: (v) => { settings.plaza.crosshair = v; } });
 panel.select(plzSec, 'Aiming', [['flashlight', 'Like the flashlight'], ['pointer', 'Laser pointer at the screen']], { get: () => settings.plaza.aimStyle, set: (v) => { settings.plaza.aimStyle = v as 'flashlight' | 'pointer'; } });
+panel.slider(plzSec, 'Look up', { min: -10, max: 15, step: 1, digits: 0, unit: '°', get: () => settings.plaza.tiltDeg, set: (v) => { settings.plaza.tiltDeg = v; } });
 panel.toggle(plzSec, 'Aim light', { get: () => settings.plaza.torch, set: (v) => { settings.plaza.torch = v; } });
 panel.toggle(plzSec, 'Laser sight', { get: () => settings.plaza.laser, set: (v) => { settings.plaza.laser = v; } });
 panel.toggle(plzSec, 'Glow (bloom)', { get: () => settings.plaza.bloom, set: (v) => { settings.plaza.bloom = v; } });
@@ -575,8 +576,9 @@ renderer.setAnimationLoop((t) => {
   lastFrame = now;
   updateInteraction(dt, eye);
   if (gallery.root.visible) gallery.update(dt, t / 1000);
+  if (!plazaOn) plaza.levelFor = 1;
   if (plazaOn) {
-    plaza.setEye(eye);
+    plaza.setEye(eye, est === REST ? 0 : dt); // level the horizon once a face is tracked
     plaza.update(dt, t / 1000, camera, renderer.domElement.height);
   }
   if (plazaOn && settings.plaza.bloom) composer.render(dt);
