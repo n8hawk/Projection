@@ -3,9 +3,10 @@ import { DEFAULT_FILTER, type FilterSettings } from '../core/eyeFilter';
 import type { SplatPlacement } from './scene';
 import { DEFAULT_AIM, type AimSettings } from '../core/aim';
 import { DEFAULT_FLASHLIGHT, type FlashlightSettings } from './flashlight';
+import { DEFAULT_PLAZA, type PlazaSettings } from './plaza/plaza';
 
 export type TrackerMode = 'webcam' | 'mouse';
-export type DemoType = 'window' | 'flashlight' | 'gallery';
+export type DemoType = 'window' | 'flashlight' | 'gallery' | 'plaza';
 
 export interface GallerySettings {
   sound: boolean;
@@ -44,6 +45,7 @@ export interface DemoSettings {
   /** Show a dot where the aim ray hits. */
   showAimDot: boolean;
   gallery: GallerySettings;
+  plaza: PlazaSettings;
 }
 
 // v2: mild ambient light and a narrower beam.
@@ -77,6 +79,7 @@ export function defaultSettings(): DemoSettings {
     aim: { ...DEFAULT_AIM },
     showAimDot: true,
     gallery: { ...DEFAULT_GALLERY },
+    plaza: { ...DEFAULT_PLAZA },
   };
 }
 
@@ -105,6 +108,7 @@ export function loadSettings(): DemoSettings {
       // Before demo types, the flashlight was a toggle.
       demo: s.demo ?? (s.flashlight?.enabled ? 'flashlight' : 'window'),
       gallery: { ...d.gallery, ...s.gallery },
+      plaza: { ...d.plaza, ...s.plaza },
     };
   } catch { return d; }
 }

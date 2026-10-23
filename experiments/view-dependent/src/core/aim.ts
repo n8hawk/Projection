@@ -32,9 +32,35 @@ export interface AimSettings {
   /** Controller aim smoothing, 0 (raw) to 1 (heavy). Steadies small hand
    *  tremor while fast sweeps stay quick. */
   smoothing: number;
+  /** Where the controller is held, cm in screen space (see `AimOrigin`
+   *  'port'): left/right of the screen centre, up/down, and out from the glass. */
+  portXCm: number;
+  portYCm: number;
+  portZCm: number;
+  /** Gyro gain when firing from the port. 1 is a true laser pointer: shots
+   *  land exactly where the controller points. */
+  portGain: number;
 }
 
-export const DEFAULT_AIM: AimSettings = { gyroGain: 1.5, stickSpeed: 90, invertYaw: false, invertPitch: false, smoothing: 0.4 };
+export const DEFAULT_AIM: AimSettings = {
+  gyroGain: 1.5, stickSpeed: 90, invertYaw: false, invertPitch: false, smoothing: 0.4,
+  portXCm: 0, portYCm: -18, portZCm: 35, portGain: 1,
+};
+
+/**
+ * Where the aim ray starts:
+ *  - 'hand': a little below the eye, following the head (torch).
+ *  - 'eye': down the sights, so the crosshair is what's hit (gallery).
+ *  - 'port': the controller's USB port, at a fixed spot in front of the
+ *    screen. The ray is the controller's own pointing line, so head movement
+ *    never changes where a shot goes. Recentring means "I'm pointing at the
+ *    middle of the screen".
+ */
+export type AimOrigin = 'hand' | 'eye' | 'port';
+
+/** The USB port sits on the controller's front edge, above its centre. */
+const PORT_FORWARD = 0.05;
+const PORT_UP = 0.015;
 
 /** Where the hand is relative to the eye: a bit below and in front. */
 const HAND_OFFSET = new THREE.Vector3(0, -0.22, -0.1);
@@ -52,11 +78,9 @@ export class AimController {
   yaw = 0;
   pitch = 0;
   readonly ray: AimRay = { origin: new THREE.Vector3(), dir: new THREE.Vector3(0, 0, -1), source: 'none', trigger: 0 };
-  /** Aim from the eye, like down a gun's sights, so whatever is under the
-   *  crosshair is what's hit at any depth (shooting). Otherwise every source
-   *  aims from the hand (torch). From the hand, the hit point's place on
-   *  screen leaps whenever the depth it lands at changes. */
-  fromEye = false;
+  /** See `AimOrigin`. From the hand, the hit point's place on screen leaps
+   *  whenever the depth it lands at changes. */
+  origin: AimOrigin = 'hand';
 
   private mouseNdc: { x: number; y: number } | null = null;
   private mouseDown = false;
@@ -66,6 +90,8 @@ export class AimController {
   private mouseTravel = 0;
   private padAt = -Infinity;
   private tmp = new THREE.Vector3();
+  private base = new THREE.Quaternion();
+  private up = new THREE.Vector3();
   private yawFilter = new OneEuro();
   private pitchFilter = new OneEuro();
 
@@ -89,6 +115,20 @@ export class AimController {
     window.addEventListener('pointerup', () => { this.mouseDown = false; });
   }
 
+  /**
+   * The pointer's line of sight from the eye, for scenes that find what's
+   * under the cursor themselves (then aim the port at it). Null when the
+   * mouse isn't the one aiming.
+   */
+  pointerRay(eye: Vec3, rect: WindowRect, out: THREE.Vector3): THREE.Vector3 | null {
+    if (this.ray.source !== 'mouse' || !this.mouseNdc) return null;
+    const { pa, pb, pc } = rect;
+    out.copy(pa)
+      .addScaledVector(pb.clone().sub(pa), this.mouseNdc.x)
+      .addScaledVector(pc.clone().sub(pa), 1 - this.mouseNdc.y);
+    return out.sub(new THREE.Vector3(eye.x, eye.y, eye.z)).normalize();
+  }
+
   /** Point straight into the screen again (also fixes gyro drift). */
   recenter(): void { this.yaw = 0; this.pitch = 0; this.yawFilter.reset(); this.pitchFilter.reset(); }
 
@@ -103,11 +143,13 @@ export class AimController {
     const sp = s.invertPitch ? -1 : 1;
     let source: AimSource = this.ray.source;
 
+    const port = this.origin === 'port';
     if (gyro?.connected) {
       const d = gyro.takeDelta();
+      const gain = port ? s.portGain : s.gyroGain;
       // Turning the controller left is a positive rotation about its up axis.
-      this.yaw -= sy * d.yaw * s.gyroGain;
-      this.pitch += sp * d.pitch * s.gyroGain;
+      this.yaw -= sy * d.yaw * gain;
+      this.pitch += sp * d.pitch * gain;
       if (Math.abs(d.yaw) + Math.abs(d.pitch) > 0.05) { this.padAt = now; this.mouseTravel = 0; source = 'gyro'; }
     }
     const rx = pad.axis(2), ry = pad.axis(3);
@@ -123,7 +165,11 @@ export class AimController {
     this.pitch = THREE.MathUtils.clamp(this.pitch, -MAX_PITCH, MAX_PITCH);
 
     const hand = this.ray.origin.set(eye.x, eye.y, eye.z);
-    if (!this.fromEye) hand.add(HAND_OFFSET);
+    if (port) {
+      // Yaw 0 / pitch 0 points from the controller at the middle of the screen.
+      hand.set(s.portXCm / 100, s.portYCm / 100, s.portZCm / 100);
+      this.base.setFromUnitVectors(new THREE.Vector3(0, 0, -1), this.tmp.copy(hand).negate().normalize());
+    } else if (this.origin === 'hand') hand.add(HAND_OFFSET);
     if (this.mouseNdc && this.mouseAt > this.padAt) {
       // Through the pointer's spot on the glass, from the eye, out to `depth`.
       const { pa, pb, pc } = rect;
@@ -134,8 +180,10 @@ export class AimController {
       const target = new THREE.Vector3(eye.x, eye.y, eye.z).lerp(onGlass, t);
       this.ray.dir.subVectors(target, hand).normalize();
       // Keep the angles in step so a controller picks up where the mouse left off.
-      this.yaw = THREE.MathUtils.radToDeg(Math.atan2(this.ray.dir.x, -this.ray.dir.z));
-      this.pitch = THREE.MathUtils.radToDeg(Math.asin(this.ray.dir.y));
+      const local = this.tmp.copy(this.ray.dir);
+      if (port) local.applyQuaternion(this.base.clone().invert());
+      this.yaw = THREE.MathUtils.radToDeg(Math.atan2(local.x, -local.z));
+      this.pitch = THREE.MathUtils.radToDeg(Math.asin(THREE.MathUtils.clamp(local.y, -1, 1)));
       source = 'mouse';
       // Start the controller smoothing fresh from wherever the mouse left it.
       this.yawFilter.reset();
@@ -153,6 +201,12 @@ export class AimController {
       }
       const y = THREE.MathUtils.degToRad(yaw), p = THREE.MathUtils.degToRad(pitch);
       this.ray.dir.set(Math.sin(y) * Math.cos(p), Math.sin(p), -Math.cos(y) * Math.cos(p));
+      if (port) {
+        this.ray.dir.applyQuaternion(this.base);
+        // From the controller's centre out to the port, which turns with it.
+        this.up.set(0, 1, 0).applyQuaternion(this.base);
+        hand.addScaledVector(this.ray.dir, PORT_FORWARD).addScaledVector(this.up, PORT_UP);
+      }
       if (source === 'mouse' || source === 'none') source = pad.pad ? 'stick' : 'none';
     }
     this.ray.source = source;

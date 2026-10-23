@@ -45,8 +45,8 @@ in the air. If moving left makes the scene swing the wrong way, tick
 The top of the panel holds the two choices that matter most:
 
 - **Demo**: *Window* (just look), *Flashlight* (light the scene with a
-  torch) or *Shooting gallery*.
-- **Scene**: grouped into *3D rooms* (the carnival booth, the grid room with
+  torch), *Shooting gallery* or *Sci-fi plaza*.
+- **Scene**: grouped into *3D rooms* (the sci-fi plaza, the carnival booth, the grid room with
   splat targets), *Splat captures* (Spark's sample, everything in
   `public/splats`, a custom URL) and *Blank* (an empty grid room).
 
@@ -60,10 +60,10 @@ your last demo, scene and settings.
 
 | Key | Action |
 | --- | --- |
-| 1 / 2 / 3 | Window / Flashlight / Shooting gallery |
+| 1 / 2 / 3 / 4 | Window / Flashlight / Shooting gallery / Sci-fi plaza |
 | [ / ] | Previous / next scene |
-| Space | Fire (shooting gallery) |
-| 0 | Reset the score |
+| Space | Fire (hold for full auto in the plaza) |
+| 0 | Reset the score (rebuild the plaza) |
 | H | Hide or show the panel |
 | F | Fullscreen |
 | L | Flashlight on or off |
@@ -117,6 +117,41 @@ round them) and one is tucked behind the awning (duck down). Hits rumble the
 controller, ring a bell and leave a mark that rides along with whatever you
 hit. **Options** or **0** resets the score. The booth's code is in
 `src/demo/gallery/`.
+
+## Sci-fi plaza (plasma machine gun)
+
+A wide shot over a ruined, alien-held city square at dusk, built for
+shooting rather than for a booth. It is modelled at full size and shrunk
+1:20 onto the screen, so the laptop looks out over a few hundred metres:
+
+- **Up close**: low rubble and two broken columns just behind the glass.
+  A squad crouches behind the left column and a turret sits behind the right
+  one; lean (or rise) to peek round them.
+- **The square**: burning wrecks, explosive barrels, a crashed dropship,
+  drones patrolling at every depth, and an elevated highway whose pillars
+  you can shoot out (the spans fall). A sniper's scope glints on the deck.
+- **Far off**: the city skyline, walkers striding through it, an alien spire,
+  a mothership with its beam on, and mountains under a dusk sky.
+
+Hold **R2** (or click, or hold **Space** or **✕**) for full-auto plasma.
+The gun overheats after about four seconds of fire and vents until it has
+cooled to a third. Barrels set each other off, cover crumbles as you hit it,
+wrecks flip when they blow, and drones, troopers, the turret and walkers go
+down and come back after a while. **Options** or **0** rebuilds everything.
+
+**The controller is the gun.** In this demo shots leave from the
+controller's USB port and travel in a straight line along where it points,
+so moving your head never changes where a shot lands. Set where you hold it
+under *Controller → Where you hold it* (measured from the middle of the
+screen to the USB port; the default is 18 cm below and 35 cm out), point the
+port at the middle of the screen and press R3 or the touchpad to line it up.
+*Pointer gain* 1× is a true laser pointer. With the mouse, the shot goes from
+the port to whatever is under the pointer.
+
+The open reticle sits where the shot will land. The dashed ring around it
+is the aim assist (*Aim assist*, 3° by default): shots that pass that close
+to an enemy hit it, and red brackets show what it has locked onto. The code
+is in `src/demo/plaza/`.
 
 ## Scenes and your own splats
 
