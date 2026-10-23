@@ -139,14 +139,17 @@ cooled to a third. Barrels set each other off, cover crumbles as you hit it,
 wrecks flip when they blow, and drones, troopers, the turret and walkers go
 down and come back after a while. **Options** or **0** rebuilds everything.
 
-**The controller is the gun.** In this demo shots leave from the
-controller's USB port and travel in a straight line along where it points,
-so moving your head never changes where a shot lands. Set where you hold it
-under *Controller → Where you hold it* (measured from the middle of the
-screen to the USB port; the default is 18 cm below and 35 cm out), point the
-port at the middle of the screen and press R3 or the touchpad to line it up.
-*Pointer gain* 1× is a true laser pointer. With the mouse, the shot goes from
-the port to whatever is under the pointer.
+**The controller is a laser pointer.** The gyro only tells the page how
+the controller turns, never where it is, so shots leave from a virtual muzzle
+just behind the bottom middle of the screen and fly straight along where the
+controller points. A faint laser shows the line. Moving your head never
+changes where a shot lands. Point at the middle of the screen and press the
+touchpad (or R3): that becomes straight ahead. *Muzzle height* under
+*Controller* raises the muzzle; *Shots come from → Where I hold it* instead
+uses a measured spot in front of the screen (true to the room, but every
+shot then climbs up into the scene from below). *Pointer gain* 1× matches
+your hand's turn exactly. With the mouse, the shot goes from the muzzle to
+whatever is under the pointer.
 
 The open reticle sits where the shot will land. The dashed ring around it
 is the aim assist (*Aim assist*, 3° by default): shots that pass that close

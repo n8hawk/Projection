@@ -40,12 +40,28 @@ export interface AimSettings {
   /** Gyro gain when firing from the port. 1 is a true laser pointer: shots
    *  land exactly where the controller points. */
   portGain: number;
+  /**
+   * Where the port is taken to be. The gyro only reports how the controller
+   * turns, never where it is, so this is a choice:
+   *  - 'screen': a muzzle just behind the glass at the bottom middle of the
+   *    screen. Recentring means "straight ahead", so the beam runs level
+   *    into the scene like a laser pointer held at the window.
+   *  - 'hand': the measured spot where you hold it (portX/Y/ZCm). True to
+   *    the room, but from below the screen every shot climbs up into the scene.
+   */
+  muzzleAt: 'screen' | 'hand';
+  /** Screen muzzle height, as a fraction of the screen height from its bottom edge. */
+  muzzleHeight: number;
 }
 
 export const DEFAULT_AIM: AimSettings = {
   gyroGain: 1.5, stickSpeed: 90, invertYaw: false, invertPitch: false, smoothing: 0.4,
   portXCm: 0, portYCm: -18, portZCm: 35, portGain: 1,
+  muzzleAt: 'screen', muzzleHeight: 0.12,
 };
+
+/** The screen muzzle sits this far behind the glass, metres. */
+const MUZZLE_BEHIND = 0.01;
 
 /**
  * Where the aim ray starts:
@@ -200,7 +216,15 @@ export class AimController {
     }
 
     const hand = this.ray.origin.set(eye.x, eye.y, eye.z);
-    if (port) {
+    const screenMuzzle = port && s.muzzleAt === 'screen';
+    if (screenMuzzle) {
+      // Bottom middle of the screen, just behind the glass; yaw 0 / pitch 0
+      // is straight into the scene.
+      const { pa, pb, pc } = rect;
+      hand.addVectors(pa, pb).multiplyScalar(0.5).addScaledVector(this.tmp.subVectors(pc, pa), s.muzzleHeight);
+      hand.z -= MUZZLE_BEHIND;
+      this.base.identity();
+    } else if (port) {
       // Yaw 0 / pitch 0 points from the controller at the middle of the screen.
       hand.set(s.portXCm / 100, s.portYCm / 100, s.portZCm / 100);
       this.base.setFromUnitVectors(new THREE.Vector3(0, 0, -1), this.tmp.copy(hand).negate().normalize());
@@ -237,7 +261,7 @@ export class AimController {
       }
       const y = THREE.MathUtils.degToRad(yaw), p = THREE.MathUtils.degToRad(pitch);
       this.ray.dir.set(Math.sin(y) * Math.cos(p), Math.sin(p), -Math.cos(y) * Math.cos(p));
-      if (port) {
+      if (port && !screenMuzzle) {
         this.ray.dir.applyQuaternion(this.base);
         // From the controller's centre out to the port, which turns with it.
         this.up.set(0, 1, 0).applyQuaternion(this.orient).applyQuaternion(this.base);

@@ -231,7 +231,7 @@ panel.toggle(plzSec, 'Laser sight', { get: () => settings.plaza.laser, set: (v) 
 panel.toggle(plzSec, 'Glow (bloom)', { get: () => settings.plaza.bloom, set: (v) => { settings.plaza.bloom = v; } });
 panel.toggle(plzSec, 'Sound', { get: () => settings.plaza.sound, set: (v) => { settings.plaza.sound = v; } });
 panel.toggle(plzSec, 'Controller rumble', { get: () => settings.plaza.rumble, set: (v) => { settings.plaza.rumble = v; } });
-panel.note(plzSec, 'Shots leave from the controller\'s USB port and fly straight along where it points, so moving your head never moves your aim. Hold the controller where you set it under Controller, point the port at the middle of the screen and press the touchpad (or R3) to line it up. Do that again whenever the aim drifts. Aim assist pulls shots onto enemies within that many degrees (the dashed ring). The gun overheats after about four seconds of fire.');
+panel.note(plzSec, 'The controller is a laser pointer: shots leave from its virtual muzzle and fly straight along where it points, so moving your head never moves your aim. Point at the middle of the screen and press the touchpad (or R3) to line it up; do that again whenever the aim drifts. Aim assist pulls shots onto enemies within that many degrees (the dashed ring). The gun overheats after about four seconds of fire.');
 
 // ---- Scene options ----
 const scn = panel.section('Scene options', true, () => {
@@ -301,12 +301,22 @@ panel.slider(ctl, 'Aim smoothing', { min: 0, max: 1, step: 0.05, digits: 2, get:
 panel.slider(ctl, 'Stick speed', { min: 20, max: 240, step: 5, digits: 0, unit: '°/s', get: () => settings.aim.stickSpeed, set: (v) => { settings.aim.stickSpeed = v; } });
 panel.toggle(ctl, 'Invert left/right aim', { get: () => settings.aim.invertYaw, set: (v) => { settings.aim.invertYaw = v; } });
 panel.toggle(ctl, 'Invert up/down aim', { get: () => settings.aim.invertPitch, set: (v) => { settings.aim.invertPitch = v; } });
-panel.subhead(ctl, 'Where you hold it (sci-fi plaza)');
-panel.number(ctl, 'Left/right', { step: 1, unit: 'cm', get: () => settings.aim.portXCm, set: (v) => { settings.aim.portXCm = v; } });
-panel.number(ctl, 'Below centre', { step: 1, unit: 'cm', get: () => -settings.aim.portYCm, set: (v) => { settings.aim.portYCm = -v; } });
-panel.number(ctl, 'Out from screen', { step: 1, unit: 'cm', get: () => settings.aim.portZCm, set: (v) => { settings.aim.portZCm = v; } });
+panel.subhead(ctl, 'Laser pointer (sci-fi plaza)');
+panel.select(ctl, 'Shots come from', [['screen', 'Bottom of the screen'], ['hand', 'Where I hold it']], {
+  get: () => settings.aim.muzzleAt,
+  set: (v) => { settings.aim.muzzleAt = v as 'screen' | 'hand'; aim.recenter(); panel.refresh(); },
+});
+const muzzleOpts = h('div');
+const handOpts = h('div');
+ctl.append(muzzleOpts, handOpts);
+panel.slider(muzzleOpts, 'Muzzle height', { min: 0, max: 50, step: 1, digits: 0, unit: '%', get: () => settings.aim.muzzleHeight * 100, set: (v) => { settings.aim.muzzleHeight = v / 100; } });
+panel.note(muzzleOpts, 'The controller can only report how it turns, not where it is, so shots leave from just behind the bottom middle of the screen and go straight where you point. Point at the middle of the screen and press the touchpad: that becomes straight ahead.');
+panel.number(handOpts, 'Left/right', { step: 1, unit: 'cm', get: () => settings.aim.portXCm, set: (v) => { settings.aim.portXCm = v; } });
+panel.number(handOpts, 'Below centre', { step: 1, unit: 'cm', get: () => -settings.aim.portYCm, set: (v) => { settings.aim.portYCm = -v; } });
+panel.number(handOpts, 'Out from screen', { step: 1, unit: 'cm', get: () => settings.aim.portZCm, set: (v) => { settings.aim.portZCm = v; } });
+panel.note(handOpts, 'Measure from the middle of the screen to the controller\'s USB port as you normally hold it. Shots then start from there, so they climb into the scene from below.');
+panel.onRefresh(() => { muzzleOpts.hidden = settings.aim.muzzleAt !== 'screen'; handOpts.hidden = settings.aim.muzzleAt !== 'hand'; });
 panel.slider(ctl, 'Pointer gain', { min: 0.5, max: 3, step: 0.05, digits: 2, unit: '×', get: () => settings.aim.portGain, set: (v) => { settings.aim.portGain = v; } });
-panel.note(ctl, 'Measure from the middle of the screen to the controller\'s USB port as you normally hold it. Pointer gain 1× is a true laser pointer: shots land exactly where the port points.');
 panel.note(ctl, 'R2 or ✕ fire · △ flashlight on/off · D-pad ▲ ▼ change demo, ◀ ▶ change scene · R3 or touchpad recentre · Options resets the score. In mouse head mode, hold Shift to move your head while the mouse aims.');
 
 // ---- Display: set once per machine, so folded away ----
