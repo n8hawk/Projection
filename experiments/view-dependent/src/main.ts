@@ -575,7 +575,7 @@ function updateInteraction(dt: number, eye: Vec3): void {
   settings.flashlight.enabled = torch && !carnival;
   // The mouse aims in the interactive demos; Shift moves the head instead.
   mouse.requireShift = demo !== 'window';
-  aim.mouseFromEye = demo === 'gallery';
+  aim.fromEye = demo === 'gallery';
   world.litRoom = torch && !carnival;
   scene.background = carnival ? NIGHT : torch ? DARK : NORMAL_BG;
   renderer.toneMapping = carnival ? THREE.ACESFilmicToneMapping : THREE.NoToneMapping;
