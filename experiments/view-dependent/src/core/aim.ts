@@ -88,6 +88,11 @@ const MOUSE_TAKEOVER_PX = 40;
 const MOUSE_MOVE_PX = 4;
 /** A controller counts as in use for this long after it last moved the aim. */
 const PAD_HOLD_MS = 2000;
+/** Degrees the controller must turn, within about half a second, to take
+ *  the aim back from the mouse. Less than this is a controller resting on
+ *  the desk: gyro noise and drift would otherwise snap the aim back to
+ *  wherever the controller points as soon as the cursor stops. */
+const GYRO_TAKEOVER_DEG = 4;
 
 export class AimController {
   /** Degrees; 0/0 points straight into the screen. */
@@ -104,6 +109,8 @@ export class AimController {
   private mouseX: number | null = null;
   private mouseY = 0;
   private mouseTravel = 0;
+  /** Recent controller turning, degrees, decaying over about half a second. */
+  private gyroTravel = 0;
   private padAt = -Infinity;
   private tmp = new THREE.Vector3();
   private base = new THREE.Quaternion();
@@ -197,7 +204,11 @@ export class AimController {
         this.orient.multiply(this.dq.setFromAxisAngle(v.divideScalar(ang), ang)).normalize();
         this.anglesFromOrient();
       }
-      if (Math.abs(d.yaw) + Math.abs(d.pitch) > 0.05) { this.padAt = now; this.mouseTravel = 0; source = 'gyro'; }
+      const turn = Math.abs(d.yaw) + Math.abs(d.pitch);
+      this.gyroTravel = this.gyroTravel * Math.exp(-dt * 2) + turn;
+      // Once the mouse has the aim, only a deliberate turn takes it back.
+      const mouseHas = this.mouseAt > this.padAt;
+      if (turn > 0.05 && (!mouseHas || this.gyroTravel > GYRO_TAKEOVER_DEG)) { this.padAt = now; this.mouseTravel = 0; source = 'gyro'; }
     }
     const rx = pad.axis(2), ry = pad.axis(3);
     if (rx || ry) {

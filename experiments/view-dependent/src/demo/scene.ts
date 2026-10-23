@@ -205,7 +205,9 @@ export class DemoScene {
         const d = (at - o) / v;
         if (d <= 0.05 || d >= best) continue;
         const x = origin.x + dir.x * d, y = origin.y + dir.y * d, z = origin.z + dir.z * d;
-        const e = 1e-4;
+        // A little slack round the edges, so the very edge of the screen
+        // still lands on the floor or wall it shows.
+        const e = 2e-3;
         if (x >= -W / 2 - e && x <= W / 2 + e && y >= -H / 2 - e && y <= H / 2 + e && z <= e && z >= -D - e) best = d;
       }
     }

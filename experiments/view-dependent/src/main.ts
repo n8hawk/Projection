@@ -708,7 +708,16 @@ function updateInteraction(dt: number, eye: Vec3): void {
   if (pd && torch && !carnival && !plazaOn) {
     if (blasterOn) picked = blaster.cast(eyeV, pd, mouseHit);
     else if (world.hitTest(eyeV, pd, mouseHit.point)) { mouseHit.prop = null; mouseHit.normal.copy(pd).negate(); picked = mouseHit; }
-    if (picked) ray.dir.subVectors(picked.point, ray.origin).normalize();
+    // Off the edge of the room (the window can reach past the calibrated
+    // screen): keep following the cursor's line of sight anyway, to a spot
+    // level with the glass, so the ring stays under the cursor.
+    if (!picked) {
+      mouseHit.point.copy(eyeV).addScaledVector(pd, Math.max(0.05, eyeV.z / Math.max(0.05, -pd.z)));
+      mouseHit.normal.copy(pd).negate();
+      mouseHit.prop = null;
+      picked = mouseHit;
+    }
+    ray.dir.subVectors(picked.point, ray.origin).normalize();
   }
   flashlight.update(ray);
   const f = settings.flashlight;
